@@ -69,3 +69,57 @@ test('fetchTestimonials walks pages and refuses an empty result', async () => {
   assert.ok(res.items.length >= 4 && res.items.length <= 5);
   await assert.rejects(fetchTestimonials(async () => ({ ok: true, text: async () => '<html><body>nothing</body></html>' })), /No testimonials/);
 });
+
+test('parses the real LUXIMMO feedback markup (comment-by / comment-container)', async () => {
+  const { readFileSync } = await import('node:fs');
+  const html = readFileSync(new URL('./fixtures/feedback-luximmo.html', import.meta.url), 'utf8');
+  const items = parseTestimonials(html);
+  assert.equal(items.length, 6);
+  assert.deepEqual(items.map((t) => t.name), ['Apostol Tolev', 'Marina Gribacova', 'Fedor Mikhailov', 'Andre Zimmermann', 'Roger', 'Apartments Cats']);
+  assert.deepEqual(items.map((t) => t.date), ['2026-07-29', '2026-05-12', '2026-05-12', '2026-04-22', '2024-10-25', '2024-09-25']);
+  assert.match(items[0].text, /^Nikola is an excellent realtor/);
+  assert.match(items[4].text, /friendly and competent\. Solutions are not only sought, but also found\. We always felt welcome/);
+  assert.ok(items.every((t) => t.lang === 'en' && t.rating === null && t.property === null));
+});
+
+test('translations: carried over from previous cache, AI only for new reviews, graceful without AI', async () => {
+  const { translateTestimonials } = await import('../src/testimonials.js');
+  const previous = [{ text: 'Nikola is an excellent realtor and his help was great.', lang: 'en', text_bg: 'Никола е отличен брокер.', translation: 'manual' }];
+  const items = [
+    { name: 'A', text: 'Nikola is an excellent realtor and his help was great.', lang: 'en' },
+    { name: 'B', text: 'Brand new review that nobody has translated yet, long enough.', lang: 'en' },
+    { name: 'C', text: 'Български отзив, който трябва да се преведе на английски език.', lang: 'bg' },
+  ];
+  const calls = [];
+  const translator = async (_env, text, from, to) => { calls.push([from, to]); return `[${to}] ${text}`; };
+  await translateTestimonials({}, items, previous, { translator });
+  assert.equal(items[0].text_bg, 'Никола е отличен брокер.');
+  assert.equal(items[0].translation, 'manual');
+  assert.equal(items[1].text_bg, '[bg] Brand new review that nobody has translated yet, long enough.');
+  assert.equal(items[2].text_en, '[en] Български отзив, който трябва да се преведе на английски език.');
+  assert.deepEqual(calls, [['en', 'bg'], ['bg', 'en']]);
+
+  const noAi = [{ name: 'D', text: 'Another new English review without any AI binding present.', lang: 'en' }];
+  await translateTestimonials({}, noAi, [], { translator: (await import('../src/testimonials.js')).translateText });
+  assert.equal(noAi[0].text_bg, undefined);
+});
+
+test('seed testimonials carry hand-written Bulgarian translations', async () => {
+  const { readFileSync } = await import('node:fs');
+  const seed = JSON.parse(readFileSync(new URL('../data/testimonials.json', import.meta.url), 'utf8'));
+  assert.equal(seed.items.length, 6);
+  assert.ok(seed.items.every((t) => t.lang === 'en' && t.text_bg && /[а-я]/i.test(t.text_bg) && t.translation === 'manual'));
+});
+
+test('manual translations win over cached AI ones', async () => {
+  const { translateTestimonials } = await import('../src/testimonials.js');
+  const text = 'Same review text appearing in cache and in the seed file, long enough.';
+  const previous = [
+    { text, lang: 'en', text_bg: 'AI превод', translation: 'ai' },
+    { text, lang: 'en', text_bg: 'Ръчен превод', translation: 'manual' },
+  ];
+  const items = [{ text, lang: 'en' }];
+  await translateTestimonials({}, items, previous, { translator: async () => 'should not be called' });
+  assert.equal(items[0].text_bg, 'Ръчен превод');
+  assert.equal(items[0].translation, 'manual');
+});

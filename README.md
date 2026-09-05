@@ -77,7 +77,7 @@ src/render/*        HTML шаблони (layout, home, listings, map, property, 
 src/testimonials.js отзиви на клиенти от luximmo.com (страницата за обратна връзка на брокера)
 public/             styles.css, app.js, favicon.svg, robots.txt, vendor/leaflet (сервират се от edge-а)
 data/seed.json      24-те обяви от стр. 1 (05.09.2026) — стартови данни и авариен fallback
-data/testimonials.json  кеширани отзиви (празен до първото успешно теглене; секцията се скрива, ако няма отзиви)
+data/testimonials.json  отзивите от luximmo.com (стартови данни; обновяват се автоматично; секцията се скрива, ако няма отзиви)
 test/               node --test; фикстурата е реален HTML от suprimmo.bg
 ```
 
@@ -94,7 +94,8 @@ test/               node --test; фикстурата е реален HTML от 
   Ако не — има линк към обявата в SUPRIMMO.
 - **Отзиви (`/otzivi`, `/en/reviews` + секция на началната страница):** теглят се от
   <https://www.luximmo.com/customers/feedback/index.html?seller=467> веднъж дневно (и от cron-а), с пагинация, ако има.
-  Парсерът търси повторяеми блокове с име, дата, оценка и текст, както и JSON-LD `Review`; при нула резултата старият кеш се пази.
+  Парсерът чете блоковете `comment-by` („Име (дд.мм.гггг)“) + `comment-container` на LUXIMMO, с общ fallback за други
+  структури и JSON-LD `Review`; при нула резултата старият кеш се пази.
 - **URL-и:** `/`, `/imoti?cat=houses&loc=Севлиево&budget=0-30000&sort=price_asc`, `/imot/89460/slug`, `/karta`, `/otzivi`; английски: `/en/...`.
 - **API:** `GET /api/listings`, `POST /api/ask {q, lang, listingId?}`, `POST /api/contact`, `GET /api/refresh?token=`.
 

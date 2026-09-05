@@ -83,7 +83,29 @@ function fromJsonLd(html) {
   return out;
 }
 
+/**
+ * Exact parser for the LUXIMMO feedback page:
+ *   <div class="... comment-by ...">Name (dd.mm.yyyy)</div> … <div class="... comment-container ..."><p>text</p></div>
+ */
+export function parseLuximmoComments(html) {
+  const out = [];
+  const re = /<div[^>]*class="[^"]*\bcomment-by\b[^"]*"[^>]*>([\s\S]*?)<\/div>[\s\S]*?<div[^>]*class="[^"]*\bcomment-container\b[^"]*"[^>]*>([\s\S]*?)<\/div>/gi;
+  for (const m of html.matchAll(re)) {
+    const head = clean(m[1]);
+    const text = textOf(m[2]).replace(/\s*\n\s*/g, ' ').trim();
+    if (text.length < 10) continue;
+    const dm = head.match(/^(.*?)\s*\(([^)]*)\)\s*$/);
+    const name = clean(dm ? dm[1] : head) || null;
+    const date = parseDate(dm ? dm[2] : head);
+    const propM = m[0].match(/\b(VT|SOF|VAR|BUR|PL)\s?\d{3,6}\b/i);
+    out.push({ name, date, rating: null, text, property: propM ? clean(propM[0]) : null });
+  }
+  return out;
+}
+
 export function parseTestimonials(html) {
+  const exact = parseLuximmoComments(html);
+  if (exact.length) return finalize(exact);
   const ld = fromJsonLd(html);
   const found = [];
   for (const block of candidateBlocks(html)) {
@@ -102,8 +124,11 @@ export function parseTestimonials(html) {
     const propM = inner.match(/\b(VT|SOF|VAR|BUR|PL)\s?\d{3,6}\b/i) || inner.match(/imot-(\d+)/i);
     found.push({ name, date, rating, text, property: propM ? clean(propM[0]) : null });
   }
-  const all = [...ld, ...found];
-  // De-duplicate by text prefix.
+  return finalize([...ld, ...found]);
+}
+
+/** De-duplicate by text prefix, trim, tag language. */
+function finalize(all) {
   const seen = new Set();
   const items = [];
   for (const t of all) {
@@ -150,4 +175,68 @@ export async function fetchTestimonials(fetchImpl = fetch, { log = () => {} } = 
   items = items.filter((t) => { const k = t.text.slice(0, 80).toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; });
   if (!items.length) throw new Error('No testimonials found — page layout unknown or request blocked');
   return { items, fetchedAt: new Date().toISOString(), source: FEEDBACK_URL };
+}
+
+/* ───────────────────────────── translation ─────────────────────────────
+ * Reviews are shown in the visitor's language. Translations are carried over from the previous
+ * cache (matched by text prefix) and only missing ones are produced — via Workers AI when the
+ * binding exists, otherwise the original text is shown.
+ */
+
+const TRANSLATE_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
+const LANG_NAME = { bg: 'Bulgarian', en: 'English' };
+
+export function textKey(text) {
+  return String(text || '').slice(0, 80).toLowerCase();
+}
+
+export async function translateText(env, text, from, to) {
+  if (!env?.AI?.run) return null;
+  const res = await env.AI.run(TRANSLATE_MODEL, {
+    messages: [
+      { role: 'system', content: `You translate customer reviews of a Bulgarian real-estate agent from ${LANG_NAME[from]} to ${LANG_NAME[to]}. Translate faithfully and naturally, keep names and tone, do not add or omit anything. Reply with the translation only, no quotes or commentary.` },
+      { role: 'user', content: text },
+    ],
+    max_tokens: 700,
+    temperature: 0.1,
+  });
+  const out = String(typeof res === 'string' ? res : res?.response ?? '').trim().replace(/^["“„]|["”“]$/g, '');
+  return out.length >= 10 && out.length <= text.length * 3 ? out : null;
+}
+
+/**
+ * Ensure every item has `text_<otherLang>`. Mutates items. Never throws.
+ * `previous` supplies already-known translations so AI is only called for new reviews.
+ */
+export async function translateTestimonials(env, items, previous = [], { log = () => {}, translator = translateText } = {}) {
+  const hasTranslation = (p) => Object.keys(p || {}).some((k) => k.startsWith('text_') && p[k]);
+  const known = new Map();
+  for (const p of previous) {
+    const k = textKey(p.text);
+    const cur = known.get(k);
+    if (!cur || (p.translation === 'manual' && cur.translation !== 'manual') || (!hasTranslation(cur) && hasTranslation(p))) known.set(k, p);
+  }
+  for (const t of items) {
+    const from = t.lang || 'bg';
+    const to = from === 'bg' ? 'en' : 'bg';
+    const field = `text_${to}`;
+    const prev = known.get(textKey(t.text));
+    if (prev?.[field]) {
+      t[field] = prev[field];
+      t.translation = prev.translation || 'ai';
+      continue;
+    }
+    if (t[field]) continue;
+    try {
+      const out = await translator(env, t.text, from, to);
+      if (out) {
+        t[field] = out;
+        t.translation = 'ai';
+        log(`translated review by ${t.name || 'anonymous'} → ${to}`);
+      }
+    } catch (err) {
+      log(`translation failed: ${err.message}`);
+    }
+  }
+  return items;
 }
