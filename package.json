@@ -5,6 +5,7 @@
   "description": "НИ Имоти — сайт на брокер Никола Иванов (niimoti.com). Cloudflare Worker + static assets.",
   "type": "module",
   "scripts": {
+    "build": "npm test",
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "test": "node --test test/*.test.js",
