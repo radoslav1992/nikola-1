@@ -16,7 +16,7 @@ Cloudflare конзолата чрез GitHub интеграцията.
 2. Свържете GitHub акаунта и изберете това repo (`radoslav1992/nikola-1`) и branch-а, който искате да деплойвате.
 3. Настройки на билда (Cloudflare ги чете от `wrangler.jsonc`):
    - **Project name:** `ni-imoti`
-   - **Build command:** *(оставете празно)*
+   - **Build command:** `npm run build` (пуска тестовете; може и празно)
    - **Deploy command:** `npx wrangler deploy`
    - Root directory: `/`
 4. **Deploy.** След ~1 минута сайтът е на `https://ni-imoti.<вашият-акаунт>.workers.dev`.
