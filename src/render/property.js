@@ -12,10 +12,11 @@ export function renderProperty({ lang, data, listing: l, detail, env }) {
   const similar = similarTo(data.items, l, 3);
   const paragraphs = detail?.paragraphs?.length ? detail.paragraphs : [];
   const town = townOf(l.place);
-  const mapQuery = detail?.coords ? `${detail.coords.lat},${detail.coords.lng}` : `${town}, ${l.region}, България`;
-  const mapUrl = detail?.coords
-    ? `https://www.openstreetmap.org/?mlat=${detail.coords.lat}&mlon=${detail.coords.lng}#map=13/${detail.coords.lat}/${detail.coords.lng}`
-    : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapQuery)}`;
+  const exact = detail?.coords && !detail.coords.approx ? detail.coords : null;
+  const coords = exact || (l.coords && Number.isFinite(l.coords.lat) ? l.coords : null);
+  const mapUrl = exact
+    ? `https://www.openstreetmap.org/?mlat=${exact.lat}&mlon=${exact.lng}#map=15/${exact.lat}/${exact.lng}`
+    : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${town}, ${l.region}, България`)}`;
 
   const features = [];
   features.push({ label: t.fTypeLabel, value: typeLabel(l.type, lang) });
@@ -87,10 +88,14 @@ export function renderProperty({ lang, data, listing: l, detail, env }) {
     <div>
       <h2>${t.mapTitle}</h2>
       <p class="lead-sm">${t.mapSub}</p>
-      <a class="map-card" href="${mapUrl}" target="_blank" rel="noopener">
+      ${coords ? html`<div class="propmap" data-propmap data-lat="${coords.lat}" data-lng="${coords.lng}" data-approx="${coords.approx ? '1' : '0'}">
+        <span class="chip">${coords.approx ? t.approxLocation : t.exactLocation}</span>
+        <noscript><div class="map-fallback"><a class="link-more" href="${mapUrl}" target="_blank" rel="noopener">${t.mapOpen} ↗</a></div></noscript>
+      </div>
+      <p class="muted small" style="margin-top:10px"><a href="${mapUrl}" target="_blank" rel="noopener">${t.mapOpen} ↗</a> · <a href="${href(lang, `/karta?loc=${encodeURIComponent(town)}`)}">${t.mapTitle2} →</a></p>` : html`<a class="map-card" href="${mapUrl}" target="_blank" rel="noopener">
         <span class="chip">${t.mapNote}</span>
         <span class="map-label">${placeLabel(l.place, lang)}${l.region ? `, ${regionLabel(l.region, lang)}` : ''} — ${t.mapOpen} ↗</span>
-      </a>
+      </a>`}
     </div>
 
     <div class="ai-box">
@@ -140,7 +145,7 @@ ${similar.length ? html`<section class="wrap section">
   ];
 
   const desc = paragraphs[0]?.slice(0, 160) || `${typeLabel(l.type, lang)} · ${placeLabel(l.place, lang)} · ${fmtPrice(l, lang)}`;
-  return page({ lang, path: listingPath(l), title: l.title, description: desc, body, jsonLd, image: main ? imgUrl(main, 'big') : null, updatedAt: data.fetchedAt, env, pageClass: 'property' });
+  return page({ lang, path: listingPath(l), title: l.title, description: desc, body, jsonLd, image: main ? imgUrl(main, 'big') : null, updatedAt: data.fetchedAt, env, pageClass: 'property', leaflet: Boolean(coords) });
 }
 
 function mergeImages(cardImages = [], detailImages = []) {

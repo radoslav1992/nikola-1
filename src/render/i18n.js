@@ -69,6 +69,11 @@ export const T = {
     notFoundTitle: 'Страницата не е намерена', notFoundSub: 'Имотът може да е продаден или свален от продажба.', backHome: 'Към началната страница',
     footerSource: 'Обявите се публикуват от SUPRIMMO / PROPERTY.BG с отговорен брокер Никола Иванов и се обновяват автоматично.', footerUpdated: 'Обновено',
     catHouses: 'Къщи и вили', catPlots: 'Парцели', catLand: 'Земеделска земя', catBusiness: 'Бизнес имоти', catRent: 'Под наем', catReduced: 'Намалени цени', catApartments: 'Апартаменти',
+    navMap: 'Карта', mapTitle2: 'Имотите на картата', mapSub2: 'Всички актуални оферти върху картата. Местоположението на имотите е приблизително — по населено място; точният адрес се уточнява при оглед.',
+    mapView: 'Карта', listView: 'Списък', approxLocation: 'Приблизително местоположение', exactLocation: 'Точно местоположение', openListing: 'Виж имота', mapCount: (n) => `${n} ${n === 1 ? 'имот на картата' : 'имота на картата'}`,
+    heroStat: (n) => `${n} актуални имота`, heroStat2: 'Велико Търново · Габрово · Ловеч', trustTitle: 'Защо с Никола', 
+    trust1t: 'Лични огледи', trust1: 'Всеки имот е видян лично. Казвам и това, което не е в обявата.', trust2t: 'До нотариуса и след това', trust2: 'Проверка на документи, договор, нотариус и практична помощ след покупката.', trust3t: 'Три езика', trust3: 'Български, английски и испански — за купувачи от България и чужбина.',
+    photoOf: (i, n) => `Снимка ${i} от ${n}`, prev: 'Предишна', next: 'Следваща',
     langSwitch: 'English', otherLang: 'en',
   },
   en: {
@@ -111,6 +116,11 @@ export const T = {
     notFoundTitle: 'Page not found', notFoundSub: 'The property may have been sold or withdrawn.', backHome: 'Back to the home page',
     footerSource: 'Listings are published by SUPRIMMO / PROPERTY.BG with Nikola Ivanov as responsible agent and are refreshed automatically.', footerUpdated: 'Updated',
     catHouses: 'Houses & villas', catPlots: 'Plots', catLand: 'Agricultural land', catBusiness: 'Business properties', catRent: 'For rent', catReduced: 'Reduced prices', catApartments: 'Apartments',
+    navMap: 'Map', mapTitle2: 'Properties on the map', mapSub2: 'All current offers on one map. Locations are approximate — by town or village; the exact address is shared at viewing.',
+    mapView: 'Map', listView: 'List', approxLocation: 'Approximate location', exactLocation: 'Exact location', openListing: 'View property', mapCount: (n) => `${n} ${n === 1 ? 'property on the map' : 'properties on the map'}`,
+    heroStat: (n) => `${n} current listings`, heroStat2: 'Veliko Tarnovo · Gabrovo · Lovech', trustTitle: 'Why work with Nikola',
+    trust1t: 'Personal viewings', trust1: 'Every property has been seen in person. I tell you what the listing leaves out.', trust2t: 'Through the notary and beyond', trust2: 'Document checks, contract, notary and practical help after the purchase.', trust3t: 'Three languages', trust3: 'Bulgarian, English and Spanish — for buyers from Bulgaria and abroad.',
+    photoOf: (i, n) => `Photo ${i} of ${n}`, prev: 'Previous', next: 'Next',
     langSwitch: 'Български', otherLang: 'bg',
   },
 };

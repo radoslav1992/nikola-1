@@ -407,5 +407,33 @@ export async function fetchAllListings({ fetchImpl = fetch, maxPages = 40, concu
 export async function fetchDetail(listing, fetchImpl = fetch) {
   const html = await fetchHtml(listing.url, fetchImpl);
   const detail = parseDetail(html, listing.id);
+  if (!detail.coords) {
+    // The listing cards link to a small map popup per property; it usually carries the exact pin.
+    try {
+      const mapHtml = await fetchHtml(`${SOURCE_BASE}/get_prop_map_ajax_v7.php?IID=${listing.id}`, fetchImpl);
+      detail.coords = parseCoords(mapHtml);
+    } catch {
+      /* optional */
+    }
+  }
+  if (detail.coords) detail.coords = { ...detail.coords, approx: false, source: 'detail' };
   return { ...detail, fetchedAt: new Date().toISOString() };
+}
+
+/** Find a Bulgarian lat/lng pair in arbitrary markup/script (Google/Leaflet/OSM embeds, JSON, query strings). */
+export function parseCoords(text) {
+  if (!text) return null;
+  const s = String(text);
+  const patterns = [
+    /(?:"lat(?:itude)?"|\blat(?:itude)?)\s*[:=]\s*["']?(4[1-4]\.\d{3,})[\s\S]{0,80}?(?:"l(?:o)?ng(?:itude)?"|\bl(?:o)?ng(?:itude)?)\s*[:=]\s*["']?(2[2-8]\.\d{3,})/i,
+    /LatLng\(\s*(4[1-4]\.\d{3,})\s*,\s*(2[2-8]\.\d{3,})/i,
+    /[?&](?:q|ll|center|query)=(4[1-4]\.\d{3,})\s*,\s*(2[2-8]\.\d{3,})/i,
+    /\[\s*(4[1-4]\.\d{3,})\s*,\s*(2[2-8]\.\d{3,})\s*\]/,
+    /(4[1-4]\.\d{4,})\s*,\s*(2[2-8]\.\d{4,})/,
+  ];
+  for (const re of patterns) {
+    const m = s.match(re);
+    if (m) return { lat: parseFloat(m[1]), lng: parseFloat(m[2]) };
+  }
+  return null;
 }

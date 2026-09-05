@@ -6,6 +6,7 @@
  */
 import seed from '../data/seed.json';
 import { fetchAllListings, fetchDetail } from './scraper.js';
+import { attachCoords } from './geo.js';
 
 const LISTINGS_KEY = 'listings:v2';
 const CACHE_ORIGIN = 'https://cache.ni-imoti.internal';
@@ -72,12 +73,33 @@ async function writeListings(env, data) {
 
 let inflight = null;
 
-/** Scrape suprimmo.bg and persist. De-duplicated per isolate. */
-export async function refreshListings(env, { log = console.log } = {}) {
+/** KV/Cache-backed store for geocoding results (place → coords). */
+function geoCache(env) {
+  return {
+    get: async (key) => (await kvGet(env, key)) || (await cacheGet(key)),
+    put: async (key, value) => {
+      await Promise.all([kvPut(env, key, value), cachePut(key, value, 60 * 60 * 24 * 90)]);
+    },
+  };
+}
+
+/**
+ * Scrape suprimmo.bg, attach coordinates and persist. De-duplicated per isolate.
+ * `network: true` (cron only) lets unknown villages be geocoded via Nominatim; request-time
+ * refreshes stay offline so they finish within the Worker's background time budget.
+ */
+export async function refreshListings(env, { log = console.log, network = false } = {}) {
   if (inflight) return inflight;
   inflight = (async () => {
+    const previous = await readListings(env);
     const data = await fetchAllListings({ log });
     data.refreshedBy = 'live';
+    // Keep coordinates we already know (exact ones from property pages, geocoded villages).
+    if (previous?.items) {
+      const known = new Map(previous.items.map((l) => [l.id, l.coords]).filter(([, c]) => c));
+      for (const l of data.items) if (known.has(l.id)) l.coords = known.get(l.id);
+    }
+    await attachCoords(data.items, { cache: geoCache(env), network, log });
     await writeListings(env, data);
     log(`Stored ${data.items.length} listings (${data.total} total on source)`);
     return data;
@@ -110,7 +132,9 @@ export async function getListings(env, ctx) {
   } catch {
     /* fall through to seed */
   }
-  return { ...seed, stale: true };
+  const fallback = { ...seed, items: seed.items.map((l) => ({ ...l })), stale: true };
+  await attachCoords(fallback.items, { network: false, sleepMs: 0 });
+  return fallback;
 }
 
 function withTimeout(promise, ms) {
@@ -145,6 +169,19 @@ async function fetchAndStoreDetail(env, listing, key) {
     kvPut(env, key, detail, { expirationTtl: DETAIL_TTL_SECONDS * 4 }),
     cachePut(key, detail, DETAIL_TTL_SECONDS),
   ]);
+  // Exact pin found → upgrade the listing's coordinates in the shared dataset so the map uses it.
+  if (detail.coords && !detail.coords.approx) {
+    try {
+      const data = await readListings(env);
+      const l = data?.items?.find((x) => x.id === listing.id);
+      if (l && (!l.coords || l.coords.approx)) {
+        l.coords = detail.coords;
+        await writeListings(env, data);
+      }
+    } catch {
+      /* best effort */
+    }
+  }
   return detail;
 }
 

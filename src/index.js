@@ -19,6 +19,7 @@ import { parseFilters } from './catalog.js';
 import { searchListings, askAboutListing } from './ai.js';
 import { renderHome } from './render/home.js';
 import { renderListings } from './render/listings.js';
+import { renderMap } from './render/map.js';
 import { renderProperty, renderNotFound } from './render/property.js';
 import { cardGrid, listingPath } from './render/components.js';
 import { toString } from './render/html.js';
@@ -38,7 +39,7 @@ export default {
 
   async scheduled(event, env, ctx) {
     ctx.waitUntil(
-      refreshListings(env).then(
+      refreshListings(env, { network: true }).then(
         (d) => console.log(`cron: refreshed ${d.items.length} listings`),
         (e) => console.error('cron: refresh failed', e && e.message),
       ),
@@ -81,7 +82,13 @@ async function handle(request, env, ctx) {
   if (path === '/imoti') {
     const data = await getListings(env, ctx);
     const filters = parseFilters(url.searchParams);
-    return htmlResponse(renderListings({ lang, data, filters, env }));
+    return htmlResponse(renderListings({ lang, data, filters, env, query: url.searchParams.toString() }));
+  }
+
+  if (path === '/karta' || path === '/map') {
+    const data = await getListings(env, ctx);
+    const filters = parseFilters(url.searchParams);
+    return htmlResponse(renderMap({ lang, data, filters, env, query: url.searchParams.toString() }));
   }
 
   const propM = path.match(/^\/imot\/(\d+)(?:\/([^/]*))?$/);
@@ -293,6 +300,7 @@ async function sitemap(env, ctx) {
   };
   add('/', '1.0', data.fetchedAt);
   add('/imoti', '0.9', data.fetchedAt);
+  add('/karta', '0.6', data.fetchedAt);
   for (const l of data.items) add(listingPath(l), '0.7', data.fetchedAt);
   const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join('\n')}\n</urlset>`;
   return new Response(xml, { headers: { 'content-type': 'application/xml; charset=utf-8', 'cache-control': 'public, max-age=3600' } });
