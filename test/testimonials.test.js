@@ -69,3 +69,15 @@ test('fetchTestimonials walks pages and refuses an empty result', async () => {
   assert.ok(res.items.length >= 4 && res.items.length <= 5);
   await assert.rejects(fetchTestimonials(async () => ({ ok: true, text: async () => '<html><body>nothing</body></html>' })), /No testimonials/);
 });
+
+test('parses the real LUXIMMO feedback markup (comment-by / comment-container)', async () => {
+  const { readFileSync } = await import('node:fs');
+  const html = readFileSync(new URL('./fixtures/feedback-luximmo.html', import.meta.url), 'utf8');
+  const items = parseTestimonials(html);
+  assert.equal(items.length, 6);
+  assert.deepEqual(items.map((t) => t.name), ['Apostol Tolev', 'Marina Gribacova', 'Fedor Mikhailov', 'Andre Zimmermann', 'Roger', 'Apartments Cats']);
+  assert.deepEqual(items.map((t) => t.date), ['2026-07-29', '2026-05-12', '2026-05-12', '2026-04-22', '2024-10-25', '2024-09-25']);
+  assert.match(items[0].text, /^Nikola is an excellent realtor/);
+  assert.match(items[4].text, /friendly and competent\. Solutions are not only sought, but also found\. We always felt welcome/);
+  assert.ok(items.every((t) => t.lang === 'en' && t.rating === null && t.property === null));
+});

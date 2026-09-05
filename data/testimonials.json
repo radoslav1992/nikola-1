@@ -1,7 +1,55 @@
 {
-  "items": [],
-  "fetchedAt": "2026-09-05T00:00:00.000Z",
+  "items": [
+    {
+      "name": "Apostol Tolev",
+      "date": "2026-07-29",
+      "rating": null,
+      "text": "Nikola is an excellent realtor and his help and experience were greatly appreciated in the viewing and purchase of my property. He is professional, very helpful and knowledgeable. Highly recommend Nikola and his colleagues for your property needs here in Bulgaria.",
+      "property": null,
+      "lang": "en"
+    },
+    {
+      "name": "Marina Gribacova",
+      "date": "2026-05-12",
+      "rating": null,
+      "text": "Nikola helped us throughout the process of buying a house, from initial purchase to finalisation. He was with us at all stages and beyond. Setting up energy and water accounts with his assistance was fast and efficient. Nikola helped us with many other things. He is a very responsible and considerate person. We trust him completely and know his help was invaluable.",
+      "property": null,
+      "lang": "en"
+    },
+    {
+      "name": "Fedor Mikhailov",
+      "date": "2026-05-12",
+      "rating": null,
+      "text": "It was a very pleasant working relationship. The work was completed reliably and courteously, and I always felt well taken care of. Thank you so much for the excellent support – highly recommended!",
+      "property": null,
+      "lang": "en"
+    },
+    {
+      "name": "Andre Zimmermann",
+      "date": "2026-04-22",
+      "rating": null,
+      "text": "Thank you so much for your competent and patient cooperation. Our special thanks go to Adriana Nikolova and Nicola Ivanov. We found our dream property through you and made many lasting connections. We would work with you again in a heartbeat and highly recommend you.",
+      "property": null,
+      "lang": "en"
+    },
+    {
+      "name": "Roger",
+      "date": "2024-10-25",
+      "rating": null,
+      "text": "We can highly recommend this agency. Both Mr. Ivanov and Mr. Konsolov are friendly and competent. Solutions are not only sought, but also found. We always felt welcome and understood.",
+      "property": null,
+      "lang": "en"
+    },
+    {
+      "name": "Apartments Cats",
+      "date": "2024-09-25",
+      "rating": null,
+      "text": "Luximmo (Varna office) - an agency with a name and reputation that you can trust when choosing a property. Commitment and dedication to meet all customer requirements. I recommend.",
+      "property": null,
+      "lang": "en"
+    }
+  ],
+  "fetchedAt": "2026-09-05T20:00:00.000Z",
   "source": "https://www.luximmo.com/customers/feedback/index.html?seller=467",
-  "seed": true,
-  "note": "Filled from the live feedback page; empty until the first successful fetch. The site hides the testimonials section when there are none."
+  "seed": true
 }

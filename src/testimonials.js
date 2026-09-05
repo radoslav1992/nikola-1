@@ -83,7 +83,29 @@ function fromJsonLd(html) {
   return out;
 }
 
+/**
+ * Exact parser for the LUXIMMO feedback page:
+ *   <div class="... comment-by ...">Name (dd.mm.yyyy)</div> … <div class="... comment-container ..."><p>text</p></div>
+ */
+export function parseLuximmoComments(html) {
+  const out = [];
+  const re = /<div[^>]*class="[^"]*\bcomment-by\b[^"]*"[^>]*>([\s\S]*?)<\/div>[\s\S]*?<div[^>]*class="[^"]*\bcomment-container\b[^"]*"[^>]*>([\s\S]*?)<\/div>/gi;
+  for (const m of html.matchAll(re)) {
+    const head = clean(m[1]);
+    const text = textOf(m[2]).replace(/\s*\n\s*/g, ' ').trim();
+    if (text.length < 10) continue;
+    const dm = head.match(/^(.*?)\s*\(([^)]*)\)\s*$/);
+    const name = clean(dm ? dm[1] : head) || null;
+    const date = parseDate(dm ? dm[2] : head);
+    const propM = m[0].match(/\b(VT|SOF|VAR|BUR|PL)\s?\d{3,6}\b/i);
+    out.push({ name, date, rating: null, text, property: propM ? clean(propM[0]) : null });
+  }
+  return out;
+}
+
 export function parseTestimonials(html) {
+  const exact = parseLuximmoComments(html);
+  if (exact.length) return finalize(exact);
   const ld = fromJsonLd(html);
   const found = [];
   for (const block of candidateBlocks(html)) {
@@ -102,8 +124,11 @@ export function parseTestimonials(html) {
     const propM = inner.match(/\b(VT|SOF|VAR|BUR|PL)\s?\d{3,6}\b/i) || inner.match(/imot-(\d+)/i);
     found.push({ name, date, rating, text, property: propM ? clean(propM[0]) : null });
   }
-  const all = [...ld, ...found];
-  // De-duplicate by text prefix.
+  return finalize([...ld, ...found]);
+}
+
+/** De-duplicate by text prefix, trim, tag language. */
+function finalize(all) {
   const seen = new Set();
   const items = [];
   for (const t of all) {
