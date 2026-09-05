@@ -1,0 +1,21 @@
+{
+  "name": "ni-imoti",
+  "version": "1.0.0",
+  "private": true,
+  "description": "НИ Имоти — сайт на брокер Никола Иванов (niimoti.com). Cloudflare Worker + static assets.",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "node --test test/*.test.js",
+    "seed": "node scripts/build-seed.mjs",
+    "cf-typegen": "wrangler types",
+    "dev:offline": "node -e \"const fs=require('fs');fs.writeFileSync('wrangler.local.jsonc',fs.readFileSync('wrangler.jsonc','utf8').replace(/\\\"ai\\\": \\{[^}]*\\},/,''))\" && wrangler dev -c wrangler.local.jsonc"
+  },
+  "devDependencies": {
+    "wrangler": "^4.129.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

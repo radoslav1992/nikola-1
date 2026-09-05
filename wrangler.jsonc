@@ -1,0 +1,65 @@
+/**
+ * НИ Имоти — Cloudflare Worker configuration.
+ *
+ * Deployed through the Cloudflare console → Workers & Pages → Create → Import a repository.
+ * Cloudflare reads this file on every push; anything you set here is the source of truth.
+ * See README.md for the step-by-step console walkthrough.
+ */
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "ni-imoti",
+  "main": "src/index.js",
+  "compatibility_date": "2025-10-01",
+  "workers_dev": true,
+  "preview_urls": true,
+
+  // Static files (CSS, JS, icons) live in ./public and are served straight from Cloudflare's edge.
+  // Every other URL (/, /imoti, /imot/:id, /api/*, /img/*) is rendered by the Worker.
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS"
+  },
+
+  // Refresh the listings from suprimmo.bg every 6 hours (needs the KV binding below to persist).
+  "triggers": {
+    "crons": ["17 */6 * * *"]
+  },
+
+  // Workers AI powers the "Търсене с изкуствен интелект" box and "Попитайте за този имот".
+  // No setup needed — every Cloudflare account has a free Workers AI allocation.
+  // If you prefer not to use it, delete this block: the site falls back to keyword search.
+  "ai": {
+    "binding": "AI"
+  },
+
+  // Variables you may edit. `keep_vars` keeps anything you add in the dashboard on redeploys.
+  "keep_vars": true,
+  "vars": {
+    "SITE_URL": "https://niimoti.com",
+    "REFRESH_HOURS": "6"
+  },
+
+  "observability": {
+    "enabled": true
+  },
+
+  /* ── OPTIONAL BUT RECOMMENDED: persistent listings cache ────────────────────────────
+   * 1. Cloudflare dashboard → Storage & Databases → KV → Create namespace, name: ni-imoti
+   * 2. Copy its ID, uncomment the block below, paste the ID, commit & push.
+   * Without KV the Worker still works (it uses the edge cache + the bundled seed data),
+   * but the listings are re-fetched more often and contact-form leads are not stored.
+   */
+  // "kv_namespaces": [
+  //   { "binding": "LISTINGS", "id": "PASTE_KV_NAMESPACE_ID_HERE" }
+  // ],
+
+  /* ── OPTIONAL: custom domain ───────────────────────────────────────────────────────
+   * Easiest: dashboard → your Worker → Settings → Domains & Routes → Add → Custom domain
+   * → niimoti.com (and again for www.niimoti.com). The domain must be in your Cloudflare account.
+   * Or uncomment below once the zone niimoti.com is active in Cloudflare:
+   */
+  // "routes": [
+  //   { "pattern": "niimoti.com", "custom_domain": true },
+  //   { "pattern": "www.niimoti.com", "custom_domain": true }
+  // ]
+}
