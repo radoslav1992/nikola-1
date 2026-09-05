@@ -1,0 +1,7 @@
+{
+  "items": [],
+  "fetchedAt": "2026-09-05T00:00:00.000Z",
+  "source": "https://www.luximmo.com/customers/feedback/index.html?seller=467",
+  "seed": true,
+  "note": "Filled from the live feedback page; empty until the first successful fetch. The site hides the testimonials section when there are none."
+}

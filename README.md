@@ -73,9 +73,11 @@ src/store.js        кеш: KV → Cache API → data/seed.json; stale-while-rev
 src/catalog.js      филтри, сортиране, подобни имоти, keyword fallback за AI търсенето
 src/ai.js           Workers AI: търсене по описание и въпроси за имот
 src/geo.js          координати: справочник на населени места, Nominatim, разпръскване на маркери
-src/render/*        HTML шаблони (layout, home, listings, map, property), i18n BG/EN
+src/render/*        HTML шаблони (layout, home, listings, map, property, testimonials), i18n BG/EN
+src/testimonials.js отзиви на клиенти от luximmo.com (страницата за обратна връзка на брокера)
 public/             styles.css, app.js, favicon.svg, robots.txt, vendor/leaflet (сервират се от edge-а)
 data/seed.json      24-те обяви от стр. 1 (05.09.2026) — стартови данни и авариен fallback
+data/testimonials.json  кеширани отзиви (празен до първото успешно теглене; секцията се скрива, ако няма отзиви)
 test/               node --test; фикстурата е реален HTML от suprimmo.bg
 ```
 
@@ -90,7 +92,10 @@ test/               node --test; фикстурата е реален HTML от 
 - **Страница на имот:** данните от картата (цена, площ, двор, спални, етажи, Акт 16, намаление) са винаги налични;
   описанието, всички снимки, характеристики и координати се четат от оригиналната страница на имота, когато е достъпна.
   Ако не — има линк към обявата в SUPRIMMO.
-- **URL-и:** `/`, `/imoti?cat=houses&loc=Севлиево&budget=0-30000&sort=price_asc`, `/imot/89460/slug`; английски: `/en/...`.
+- **Отзиви (`/otzivi`, `/en/reviews` + секция на началната страница):** теглят се от
+  <https://www.luximmo.com/customers/feedback/index.html?seller=467> веднъж дневно (и от cron-а), с пагинация, ако има.
+  Парсерът търси повторяеми блокове с име, дата, оценка и текст, както и JSON-LD `Review`; при нула резултата старият кеш се пази.
+- **URL-и:** `/`, `/imoti?cat=houses&loc=Севлиево&budget=0-30000&sort=price_asc`, `/imot/89460/slug`, `/karta`, `/otzivi`; английски: `/en/...`.
 - **API:** `GET /api/listings`, `POST /api/ask {q, lang, listingId?}`, `POST /api/contact`, `GET /api/refresh?token=`.
 
 ## 3. Локална разработка

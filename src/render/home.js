@@ -3,8 +3,9 @@ import { T, AGENT, SITE, CATEGORIES, typeLabel, placeLabel, transliterate, fmtPr
 import { page, href, waLink, viberLink, telHref } from './layout.js';
 import { cardGrid, contactForm, imgUrl, listingHref } from './components.js';
 import { distinctTypes, regionChips } from '../catalog.js';
+import { reviewsSection } from './testimonials.js';
 
-export function renderHome({ lang, data, env }) {
+export function renderHome({ lang, data, env, testimonials = null }) {
   const t = T[lang];
   const items = data.items;
   const featured = items.slice(0, 6);
@@ -107,6 +108,8 @@ ${reduced.length ? html`<section id="reduced" class="wrap section">
   </div>
   ${cardGrid(reduced, lang)}
 </section>` : ''}
+
+${reviewsSection(lang, testimonials, { limit: 3 })}
 
 <section id="about" class="wrap section">
   <div class="about-panel">
