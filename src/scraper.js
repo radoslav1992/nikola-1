@@ -159,12 +159,12 @@ export function parseCard(block, idFromAttr) {
     if (field && stats[field] == null) stats[field] = toInt(m[2]);
   }
 
-  const priceM = block.match(/(Наем)?(?:&nbsp;| )([\d\s ]+?)\s*<span class="curr_conv">€<\/span>(\/месец)?/);
+  const priceM = block.match(/(Наем)?(?:&nbsp;| )([\d\s ]+?)\s*<span class="curr_conv">(?:€|&euro;|&#8364;)<\/span>(\/месец)?/);
   const price = priceM ? toInt(priceM[2]) : null;
   const rent = Boolean(priceM && (priceM[1] || priceM[3])) || /badge light[^>]*>\s*под наем/i.test(block);
   const oldPrice = toInt((block.match(/<s class="color-alert[^"]*">\s*([\d\s ]+?)\s*<span class="curr_conv">/) || [])[1]);
   const discount = toInt((block.match(/<span class="font-small">\s*-(\d+)%/) || [])[1]);
-  const pricePerSqm = toFloat((block.match(/([\d.,]+)\s*€\/м²/) || [])[1]);
+  const pricePerSqm = toFloat((block.match(/([\d.,]+)\s*(?:€|&euro;|&#8364;)\/м(?:²|&sup2;|&#178;)/) || [])[1]);
 
   const akt16 = /badge act\b[\s\S]{0,80}?акт\s*16/i.test(block);
   const reduced = /badge alert/.test(block) || discount != null || oldPrice != null;
@@ -316,7 +316,51 @@ export function parseDetail(html, id) {
 async function fetchHtml(url, fetchImpl = fetch) {
   const res = await fetchImpl(url, { headers: BROWSER_HEADERS, redirect: 'follow', cf: { cacheTtl: 0 } });
   if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
-  return await res.text();
+  if (typeof res.arrayBuffer !== 'function') return await res.text(); // test doubles
+  return decodeHtmlBytes(new Uint8Array(await res.arrayBuffer()), res.headers?.get?.('content-type') || '');
+}
+
+/* ───────────────────────────── charset handling ─────────────────────────────
+ * suprimmo.bg serves its HTML as windows-1251 (Cyrillic). Decoding it as UTF-8 turns every
+ * Bulgarian character into U+FFFD, so we honour the declared charset. The 1251 table is
+ * inlined so this works even where TextDecoder lacks legacy encodings.
+ */
+
+const CP1251_HIGH =
+  'ЂЃ‚ѓ„…†‡€‰Љ‹ЊЌЋЏђ‘’“”•–—™љ›њќћџ ЎўЈ¤Ґ¦§Ё©Є«¬­®Ї°±Ііґµ¶·ё№є»јЅѕї' +
+  'АБВГДЕЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдежзийклмнопрстуфхцчшщъыьэюя';
+
+export function decodeCp1251(bytes) {
+  let out = '';
+  for (let i = 0; i < bytes.length; i++) {
+    const b = bytes[i];
+    out += b < 0x80 ? String.fromCharCode(b) : CP1251_HIGH[b - 0x80];
+  }
+  return out;
+}
+
+function sniffCharset(bytes, contentType) {
+  const fromHeader = (String(contentType).match(/charset=["']?([\w-]+)/i) || [])[1];
+  if (fromHeader) return fromHeader.toLowerCase();
+  let head = '';
+  const n = Math.min(bytes.length, 6144);
+  for (let i = 0; i < n; i++) head += String.fromCharCode(bytes[i]);
+  const fromMeta = (head.match(/<meta[^>]+charset=["']?([\w-]+)/i) || [])[1];
+  return fromMeta ? fromMeta.toLowerCase() : '';
+}
+
+export function decodeHtmlBytes(bytes, contentType = '') {
+  const charset = sniffCharset(bytes, contentType);
+  if (/1251|cyrillic/.test(charset)) return decodeCp1251(bytes);
+  let text;
+  try {
+    text = new TextDecoder(charset || 'utf-8', { fatal: false }).decode(bytes);
+  } catch {
+    text = new TextDecoder('utf-8').decode(bytes);
+  }
+  // Declared/assumed UTF-8 but the decode is full of replacement characters → almost certainly 1251.
+  if ((text.match(/\uFFFD/g) || []).length > 20) return decodeCp1251(bytes);
+  return text;
 }
 
 /**

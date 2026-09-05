@@ -7,7 +7,7 @@
 import seed from '../data/seed.json';
 import { fetchAllListings, fetchDetail } from './scraper.js';
 
-const LISTINGS_KEY = 'listings:v1';
+const LISTINGS_KEY = 'listings:v2';
 const CACHE_ORIGIN = 'https://cache.ni-imoti.internal';
 const DETAIL_TTL_SECONDS = 60 * 60 * 24 * 7; // 7 days
 const LISTINGS_CACHE_SECONDS = 60 * 60 * 24 * 14; // 14 days (we refresh far more often)
@@ -123,7 +123,7 @@ function withTimeout(promise, ms) {
 /* ─────────── property details ─────────── */
 
 export async function getDetail(env, ctx, listing) {
-  const key = `detail:v1:${listing.id}`;
+  const key = `detail:v2:${listing.id}`;
   const cached = (await kvGet(env, key)) || (await cacheGet(key));
   if (cached) {
     const age = Date.now() - Date.parse(cached.fetchedAt || 0);
