@@ -1,7 +1,7 @@
-import { html } from './html.js';
-import { T, AGENT, SITE, CATEGORIES, typeLabel, placeLabel, transliterate } from './i18n.js';
+import { html, raw } from './html.js';
+import { T, AGENT, SITE, CATEGORIES, typeLabel, placeLabel, transliterate, fmtPrice } from './i18n.js';
 import { page, href, waLink, viberLink, telHref } from './layout.js';
-import { cardGrid, contactForm, imgUrl } from './components.js';
+import { cardGrid, contactForm, imgUrl, listingHref } from './components.js';
 import { distinctTypes, regionChips } from '../catalog.js';
 
 export function renderHome({ lang, data, env }) {
@@ -28,12 +28,17 @@ export function renderHome({ lang, data, env }) {
     <p class="lead">${t.heroSub}</p>
     <div class="btn-row">
       <a class="btn btn-primary btn-pill" href="${href(lang, '/imoti')}">${t.heroCta}</a>
-      <a class="btn btn-ghost btn-pill" href="#about">${t.heroCta2}</a>
+      <a class="btn btn-ghost btn-pill" href="${href(lang, '/karta')}">${t.navMap}</a>
+    </div>
+    <div class="hero-stats">
+      <span>${t.heroStat(items.length)}</span>
+      <span>${t.heroStat2}</span>
+      <span>BG · EN · ES</span>
     </div>
   </div>
   <div class="hero-media">
-    ${heroImg ? html`<img src="${imgUrl(heroImg, 'big')}" alt="${hero.title}" fetchpriority="high" width="1200" height="800">` : ''}
-    ${hero ? html`<a class="hero-caption" href="${href(lang, `/imot/${hero.id}/${hero.slug}`)}">${typeLabel(hero.type, lang)} · ${placeLabel(hero.place, lang)}</a>` : ''}
+    ${heroImg ? html`<img src="${imgUrl(heroImg, 'big')}" alt="${hero.title}" fetchpriority="high" width="1200" height="960">` : ''}
+    ${hero ? html`<a class="hero-caption" href="${listingHref(hero, lang)}"><span>${typeLabel(hero.type, lang)} · ${placeLabel(hero.place, lang)}<small>${hero.title}</small></span><b>${fmtPrice(hero, lang)}</b></a>` : ''}
   </div>
 </section>
 
@@ -70,6 +75,19 @@ export function renderHome({ lang, data, env }) {
   ${cardGrid(featured, lang, { eagerFirst: true })}
 </section>
 
+<section class="wrap section">
+  <div class="section-head">
+    <h2>${t.lifeTitle}</h2>
+    <a class="link-more" href="${href(lang, '/karta')}">${t.mapTitle2} →</a>
+  </div>
+  <div class="grid tiles">
+    ${categories.map((c) => html`<a class="tile" href="${href(lang, `/imoti?cat=${c.key}`)}">
+      <div class="tile-media">${c.img ? html`<img src="${imgUrl(c.img, 'medium')}" alt="" loading="lazy" width="400" height="400">` : ''}</div>
+      <div class="tile-label">${t[c.label]} <span class="muted">(${c.count})</span></div>
+    </a>`)}
+  </div>
+</section>
+
 <section id="regions" class="wrap section">
   <div class="two-col">
     <div>
@@ -82,15 +100,13 @@ export function renderHome({ lang, data, env }) {
   </div>
 </section>
 
-<section class="wrap section">
-  <h2>${t.lifeTitle}</h2>
-  <div class="grid tiles">
-    ${categories.map((c) => html`<a class="tile" href="${href(lang, `/imoti?cat=${c.key}`)}">
-      <div class="tile-media">${c.img ? html`<img src="${imgUrl(c.img, 'medium')}" alt="" loading="lazy" width="400" height="400">` : ''}</div>
-      <div class="tile-label">${t[c.label]} <span class="muted">(${c.count})</span></div>
-    </a>`)}
+${reduced.length ? html`<section id="reduced" class="wrap section">
+  <div class="section-head">
+    <div><h2>${t.reducedTitle}</h2><p class="muted">${t.reducedSub}</p></div>
+    <a class="link-more" href="${href(lang, '/imoti?cat=reduced')}">${t.featAll}</a>
   </div>
-</section>
+  ${cardGrid(reduced, lang)}
+</section>` : ''}
 
 <section id="about" class="wrap section">
   <div class="about-panel">
@@ -114,13 +130,14 @@ export function renderHome({ lang, data, env }) {
   </div>
 </section>
 
-${reduced.length ? html`<section id="reduced" class="wrap section">
-  <div class="section-head">
-    <div><h2>${t.reducedTitle}</h2><p class="muted">${t.reducedSub}</p></div>
-    <a class="link-more" href="${href(lang, '/imoti?cat=reduced')}">${t.featAll}</a>
+<section class="wrap section">
+  <h2 style="margin-bottom:22px">${t.trustTitle}</h2>
+  <div class="trust">
+    <div class="trust-item"><span class="ico">${raw(ICON_EYE)}</span><h3>${t.trust1t}</h3><p>${t.trust1}</p></div>
+    <div class="trust-item"><span class="ico">${raw(ICON_DOC)}</span><h3>${t.trust2t}</h3><p>${t.trust2}</p></div>
+    <div class="trust-item"><span class="ico">${raw(ICON_GLOBE)}</span><h3>${t.trust3t}</h3><p>${t.trust3}</p></div>
   </div>
-  ${cardGrid(reduced, lang)}
-</section>` : ''}
+</section>
 
 <section id="contact" class="wrap section contact-section">
   <div class="two-col">
@@ -128,11 +145,11 @@ ${reduced.length ? html`<section id="reduced" class="wrap section">
       <h2>${t.contactTitle}</h2>
       <p class="lead-sm">${t.contactSub}</p>
       <ul class="contact-list">
-        <li><a href="${telHref(AGENT.mobile)}"><span class="ico">📱</span>${AGENT.mobile}</a></li>
-        <li><a href="${telHref(AGENT.office)}"><span class="ico">☎</span>${AGENT.office} <span class="muted">(${lang === 'en' ? 'office' : 'офис'})</span></a></li>
+        <li><a href="${telHref(AGENT.mobile)}"><span class="ico">${raw(ICON_PHONE)}</span>${AGENT.mobile}</a></li>
+        <li><a href="${telHref(AGENT.office)}"><span class="ico">${raw(ICON_PHONE)}</span>${AGENT.office} <span class="muted">(${lang === 'en' ? 'office' : 'офис'})</span></a></li>
         <li><a href="${waLink()}" target="_blank" rel="noopener"><span class="ico">WA</span>WhatsApp ${AGENT.whatsapp}</a></li>
         <li><a href="${viberLink()}"><span class="ico">VB</span>Viber</a></li>
-        <li><a href="${AGENT.mapsUrl}" target="_blank" rel="noopener"><span class="ico">⌖</span>${AGENT.address[lang]}</a></li>
+        <li><a href="${AGENT.mapsUrl}" target="_blank" rel="noopener"><span class="ico">${raw(ICON_PIN)}</span>${AGENT.address[lang]}</a></li>
       </ul>
     </div>
     <div class="panel">${contactForm(lang)}</div>
@@ -156,3 +173,9 @@ ${reduced.length ? html`<section id="reduced" class="wrap section">
 
   return page({ lang, path: '/', description: t.metaHome, body, jsonLd, image: heroImg ? imgUrl(heroImg, 'big') : null, updatedAt: data.fetchedAt, env, pageClass: 'home' });
 }
+
+const ICON_EYE = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+const ICON_DOC = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M9 13h6M9 17h6"/></svg>';
+const ICON_GLOBE = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>';
+const ICON_PHONE = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg>';
+const ICON_PIN = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s7-6.5 7-12a7 7 0 1 0-14 0c0 5.5 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg>';

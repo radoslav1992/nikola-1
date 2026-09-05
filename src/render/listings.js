@@ -1,10 +1,10 @@
 import { html } from './html.js';
 import { T, CATEGORIES, typeLabel, transliterate } from './i18n.js';
 import { page, href } from './layout.js';
-import { cardGrid, pagination } from './components.js';
+import { cardGrid, pagination, viewSwitch } from './components.js';
 import { distinctTypes, regionChips, applyFilters, paginate } from '../catalog.js';
 
-export function renderListings({ lang, data, filters, env, path = '/imoti' }) {
+export function renderListings({ lang, data, filters, env, path = '/imoti', query = '' }) {
   const t = T[lang];
   const all = data.items;
   const filtered = applyFilters(all, filters);
@@ -68,7 +68,10 @@ export function renderListings({ lang, data, filters, env, path = '/imoti' }) {
 <section class="wrap section-sm">
   <div class="results-head">
     <span class="results-count">${t.results(pg.total)}${filters.q ? html` · „${filters.q}“` : ''}</span>
-    ${hasFilters ? html`<a class="link-more" href="${href(lang, path)}">${t.clearFilters}</a>` : ''}
+    <div class="results-tools">
+      ${hasFilters ? html`<a class="link-more" href="${href(lang, path)}">${t.clearFilters}</a>` : ''}
+      ${viewSwitch(lang, { active: 'list', query })}
+    </div>
   </div>
   ${pg.items.length ? cardGrid(pg.items, lang, { eagerFirst: true }) : html`<p class="empty">${t.noResults}</p>`}
   ${pagination(lang, { page: pg.page, pages: pg.pages, buildHref: (n) => qs({ page: n }) })}

@@ -1,5 +1,5 @@
 /* НИ Имоти — progressive enhancement. The site works without this file; it adds:
-   mobile menu, AI search / questions, contact form via fetch, gallery + lightbox. */
+   mobile menu, card photo carousels, AI search / questions, contact form via fetch, gallery + lightbox, maps. */
 (function () {
   'use strict';
   var lang = document.body.getAttribute('data-lang') || 'bg';
@@ -50,6 +50,40 @@
     });
   });
 
+  /* Card photo carousels: hover across the image to flip photos, arrows on hover/touch, dots. */
+  function initCarousels(root) {
+    $all('[data-carousel]', root).forEach(function (media) {
+      if (media.__carousel) return;
+      media.__carousel = true;
+      var imgs = $all('.card-slides img', media);
+      var dots = $all('.card-dots i', media);
+      var zones = $all('.card-zones span', media);
+      var idx = 0;
+      function show(i) {
+        idx = (i + imgs.length) % imgs.length;
+        imgs.forEach(function (im, k) { im.classList.toggle('on', k === idx); if (k === idx && im.loading === 'lazy') im.loading = 'eager'; });
+        dots.forEach(function (d, k) { d.classList.toggle('on', k === idx); });
+      }
+      zones.forEach(function (z, k) { z.addEventListener('mouseenter', function () { show(k); }); });
+      media.addEventListener('mouseleave', function () { show(0); });
+      $all('.card-arrow', media).forEach(function (b) {
+        b.addEventListener('click', function (e) {
+          e.preventDefault(); e.stopPropagation();
+          show(idx + parseInt(b.getAttribute('data-dir'), 10));
+        });
+      });
+      var tx = null;
+      media.addEventListener('touchstart', function (e) { tx = e.touches[0].clientX; }, { passive: true });
+      media.addEventListener('touchend', function (e) {
+        if (tx == null) return;
+        var dx = e.changedTouches[0].clientX - tx;
+        tx = null;
+        if (Math.abs(dx) > 40) { e.preventDefault(); show(dx < 0 ? idx + 1 : idx - 1); }
+      });
+    });
+  }
+  initCarousels(document);
+
   /* AI search (home) */
   $all('[data-ai-search]').forEach(function (form) {
     var out = form.parentNode.querySelector('.ai-result');
@@ -71,6 +105,7 @@
         else parts.push('<div class="ai-answer">' + esc(T.none) + '</div>');
         parts.push('<p style="margin-top:14px"><a class="link-more" href="' + allHref + '?q=' + encodeURIComponent(q) + '">' + esc(T.all) + '</a></p>');
         out.innerHTML = parts.join('');
+        initCarousels(out);
       }).catch(function () {
         out.innerHTML = '<div class="ai-answer error">' + esc(T.error) + '</div>';
       }).then(function () { btn.disabled = false; });
@@ -169,5 +204,68 @@
       if (Math.abs(dx) > 40) show(dx < 0 ? idx + 1 : idx - 1);
       touchX = null;
     });
+  }
+
+  /* Maps (Leaflet is only loaded on pages that need it) */
+  var L = window.L;
+  function tiles(map) {
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 18,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+    }).addTo(map);
+  }
+
+  /* Listings map page */
+  var mapEl = $('[data-map]');
+  if (L && mapEl) {
+    var points = [];
+    try { points = JSON.parse($('[data-map-points]').textContent); } catch (err) { points = []; }
+    var map = L.map(mapEl, { scrollWheelZoom: true, zoomControl: true });
+    tiles(map);
+    var bounds = [];
+    var openLabel = mapEl.getAttribute('data-open');
+    var approxLabel = mapEl.getAttribute('data-approx');
+    var exactLabel = mapEl.getAttribute('data-exact');
+    points.forEach(function (p) {
+      var icon = L.divIcon({ className: 'price-pin-wrap', html: '<div class="price-pin' + (p.approx ? ' approx' : '') + '">' + esc(p.priceLabel) + '</div>', iconSize: null });
+      var m = L.marker([p.lat, p.lng], { icon: icon, title: p.title }).addTo(map);
+      var meta = [];
+      if (p.area) meta.push(p.area + ' m²');
+      if (p.plotArea) meta.push((bg ? 'двор ' : 'plot ') + p.plotArea + ' m²');
+      if (p.bedrooms) meta.push(p.bedrooms + (bg ? ' спални' : ' bd'));
+      m.bindPopup(
+        '<div class="map-pop">' + (p.img ? '<img src="' + esc(p.img) + '" alt="" loading="lazy">' : '') +
+        '<div class="map-pop-body"><div class="price">' + esc(p.priceLabel) + '</div>' +
+        '<div class="title">' + esc(p.title) + '</div>' +
+        '<div class="loc">' + esc(p.typeLabel) + ' · ' + esc(p.placeLabel) + (meta.length ? '<br>' + esc(meta.join(' · ')) : '') + '</div>' +
+        '<div class="loc" style="margin-top:4px">' + esc(p.approx ? approxLabel : exactLabel) + '</div>' +
+        '<a class="btn btn-primary" href="' + esc(p.url) + '">' + esc(openLabel) + '</a></div></div>',
+        { maxWidth: 280, minWidth: 260, closeButton: true }
+      );
+      m.on('popupopen', function () { var el = m.getElement(); if (el) el.querySelector('.price-pin').classList.add('active'); });
+      m.on('popupclose', function () { var el = m.getElement(); if (el) el.querySelector('.price-pin').classList.remove('active'); });
+      bounds.push([p.lat, p.lng]);
+    });
+    if (bounds.length) map.fitBounds(bounds, { padding: [40, 40], maxZoom: 12 });
+    else map.setView([43.0, 25.3], 9);
+  }
+
+  /* Property page mini map */
+  var propMap = $('[data-propmap]');
+  if (L && propMap) {
+    var lat = parseFloat(propMap.getAttribute('data-lat'));
+    var lng = parseFloat(propMap.getAttribute('data-lng'));
+    var approx = propMap.getAttribute('data-approx') === '1';
+    if (isFinite(lat) && isFinite(lng)) {
+      var pm = L.map(propMap, { scrollWheelZoom: false, zoomControl: true });
+      tiles(pm);
+      if (approx) {
+        L.circle([lat, lng], { radius: 1000, color: '#167A5A', fillColor: '#167A5A', fillOpacity: 0.15, weight: 2 }).addTo(pm);
+        pm.setView([lat, lng], 12);
+      } else {
+        L.marker([lat, lng]).addTo(pm);
+        pm.setView([lat, lng], 14);
+      }
+    }
   }
 })();
