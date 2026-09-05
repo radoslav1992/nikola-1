@@ -14,12 +14,13 @@
  *   /sitemap.xml, /healthz
  * Static files in ./public are served by the assets binding before the Worker runs.
  */
-import { getListings, getDetail, refreshListings, storeLead, readListings } from './store.js';
+import { getListings, getDetail, refreshListings, storeLead, readListings, getTestimonials, refreshTestimonials } from './store.js';
 import { parseFilters } from './catalog.js';
 import { searchListings, askAboutListing } from './ai.js';
 import { renderHome } from './render/home.js';
 import { renderListings } from './render/listings.js';
 import { renderMap } from './render/map.js';
+import { renderReviews, reviewsSection } from './render/testimonials.js';
 import { renderProperty, renderNotFound } from './render/property.js';
 import { cardGrid, listingPath } from './render/components.js';
 import { toString } from './render/html.js';
@@ -42,6 +43,12 @@ export default {
       refreshListings(env, { network: true }).then(
         (d) => console.log(`cron: refreshed ${d.items.length} listings`),
         (e) => console.error('cron: refresh failed', e && e.message),
+      ),
+    );
+    ctx.waitUntil(
+      refreshTestimonials(env).then(
+        (d) => console.log(`cron: refreshed ${d.items.length} testimonials`),
+        (e) => console.error('cron: testimonials refresh failed', e && e.message),
       ),
     );
   },
@@ -75,8 +82,13 @@ async function handle(request, env, ctx) {
   if (path === '/sitemap.xml') return sitemap(env, ctx);
 
   if (path === '/') {
-    const data = await getListings(env, ctx);
-    return htmlResponse(renderHome({ lang, data, env }));
+    const [data, testimonials] = await Promise.all([getListings(env, ctx), getTestimonials(env, ctx)]);
+    return htmlResponse(renderHome({ lang, data, env, testimonials }));
+  }
+
+  if (path === '/otzivi' || path === '/reviews') {
+    const [data, testimonials] = await Promise.all([getListings(env, ctx), getTestimonials(env, ctx)]);
+    return htmlResponse(renderReviews({ lang, data, testimonials, env }));
   }
 
   if (path === '/imoti') {
@@ -124,7 +136,8 @@ async function handleApi(request, env, ctx, path, url, lang) {
     if (!env.REFRESH_TOKEN || token !== env.REFRESH_TOKEN) return json({ error: 'not found' }, 404);
     try {
       const data = await refreshListings(env);
-      return json({ ok: true, items: data.items.length, total: data.total, pages: data.pages, failedPages: data.failedPages, fetchedAt: data.fetchedAt });
+      const reviews = await refreshTestimonials(env).catch((e) => ({ error: String(e && e.message) }));
+      return json({ ok: true, testimonials: reviews.items ? reviews.items.length : reviews, items: data.items.length, total: data.total, pages: data.pages, failedPages: data.failedPages, fetchedAt: data.fetchedAt });
     } catch (err) {
       return json({ ok: false, error: String(err && err.message) }, 502);
     }
@@ -301,6 +314,7 @@ async function sitemap(env, ctx) {
   add('/', '1.0', data.fetchedAt);
   add('/imoti', '0.9', data.fetchedAt);
   add('/karta', '0.6', data.fetchedAt);
+  add('/otzivi', '0.5', data.fetchedAt);
   for (const l of data.items) add(listingPath(l), '0.7', data.fetchedAt);
   const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join('\n')}\n</urlset>`;
   return new Response(xml, { headers: { 'content-type': 'application/xml; charset=utf-8', 'cache-control': 'public, max-age=3600' } });

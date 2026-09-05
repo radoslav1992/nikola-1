@@ -7,6 +7,8 @@
 import seed from '../data/seed.json';
 import { fetchAllListings, fetchDetail } from './scraper.js';
 import { attachCoords } from './geo.js';
+import testimonialsSeed from '../data/testimonials.json';
+import { fetchTestimonials } from './testimonials.js';
 
 const LISTINGS_KEY = 'listings:v2';
 const CACHE_ORIGIN = 'https://cache.ni-imoti.internal';
@@ -190,4 +192,39 @@ async function fetchAndStoreDetail(env, listing, key) {
 export async function storeLead(env, lead) {
   const id = `lead:${new Date().toISOString()}:${Math.random().toString(36).slice(2, 8)}`;
   return kvPut(env, id, lead);
+}
+
+/* ─────────── testimonials ─────────── */
+
+const TESTIMONIALS_KEY = 'testimonials:v1';
+let inflightTestimonials = null;
+
+export async function refreshTestimonials(env, { log = console.log } = {}) {
+  if (inflightTestimonials) return inflightTestimonials;
+  inflightTestimonials = (async () => {
+    const data = await fetchTestimonials(fetch, { log });
+    await Promise.all([kvPut(env, TESTIMONIALS_KEY, data), cachePut(TESTIMONIALS_KEY, data, LISTINGS_CACHE_SECONDS)]);
+    log(`Stored ${data.items.length} testimonials`);
+    return data;
+  })().finally(() => {
+    inflightTestimonials = null;
+  });
+  return inflightTestimonials;
+}
+
+/** Testimonials with stale-while-revalidate (24 h); never throws. */
+export async function getTestimonials(env, ctx) {
+  const cached = (await kvGet(env, TESTIMONIALS_KEY)) || (await cacheGet(TESTIMONIALS_KEY));
+  if (cached?.items?.length) {
+    const age = Date.now() - Date.parse(cached.fetchedAt || 0);
+    if (age > 24 * 3600 * 1000 && ctx?.waitUntil) ctx.waitUntil(refreshTestimonials(env, { log: () => {} }).catch(() => {}));
+    return cached;
+  }
+  try {
+    const live = await withTimeout(refreshTestimonials(env, { log: () => {} }), 6000);
+    if (live?.items?.length) return live;
+  } catch {
+    /* fall through */
+  }
+  return testimonialsSeed;
 }

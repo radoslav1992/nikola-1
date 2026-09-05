@@ -28,6 +28,7 @@ const NAV = [
   ['navProps', '/imoti'],
   ['navMap', '/karta'],
   ['navReduced', '/imoti?cat=reduced'],
+  ['navReviews', '/otzivi'],
   ['navAbout', '/#about'],
   ['navContact', '/#contact'],
 ];
