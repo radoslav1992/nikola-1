@@ -166,3 +166,40 @@ test('clean() decodes entities and collapses whitespace', () => {
   assert.equal(clean('  Габровска област,&nbsp;България  <br> x '), 'Габровска област, България x');
   assert.equal(clean('a &amp; b &quot;c&quot; &#8211; d'), 'a & b "c" – d');
 });
+
+test('windows-1251 pages are decoded correctly (suprimmo.bg serves cp1251)', async () => {
+  const { decodeHtmlBytes, decodeCp1251 } = await import('../src/scraper.js');
+  // Verify the inlined table against Node's ICU decoder for every high byte.
+  const all = new Uint8Array(128).map((_, i) => 0x80 + i);
+  assert.equal(decodeCp1251(all), new TextDecoder('windows-1251').decode(all));
+
+  // Encode the UTF-8 fixture as cp1251 and make sure parsing still yields Bulgarian text.
+  const enc = new TextDecoder('windows-1251');
+  const table = new Map();
+  for (let b = 0x80; b < 0x100; b++) table.set(enc.decode(new Uint8Array([b])), b);
+  const bytes = Uint8Array.from([...page1].map((ch) => (ch.charCodeAt(0) < 0x80 ? ch.charCodeAt(0) : table.get(ch) ?? 0x3f)));
+
+  const viaHeader = decodeHtmlBytes(bytes, 'text/html; charset=windows-1251');
+  assert.equal(parseListingPage(viaHeader).items[1].type, 'Къща');
+  assert.equal(parseListingPage(viaHeader).items[1].price, 15500);
+  assert.equal(parseListingPage(viaHeader).items[1].area, 120);
+
+  // No header charset: sniff from <meta charset> or from the flood of U+FFFD.
+  const noMeta = Uint8Array.from(bytes);
+  const viaSniff = decodeHtmlBytes(noMeta, 'text/html');
+  assert.equal(parseListingPage(viaSniff).items[4].type, 'Склад');
+  assert.equal(parseListingPage(viaSniff).items[4].rent, true);
+
+  // Plain UTF-8 still works.
+  const utf8 = decodeHtmlBytes(new TextEncoder().encode(page1), 'text/html; charset=utf-8');
+  assert.equal(parseListingPage(utf8).items.length, 6);
+});
+
+test('price parsing tolerates &euro; entities', () => {
+  const html = page1.replace(/€/g, '&euro;').replace(/м²/g, 'м&sup2;');
+  const items = parseListingPage(html).items;
+  assert.equal(items[0].price, 110000);
+  assert.equal(items[0].oldPrice, 179000);
+  assert.equal(items[0].pricePerSqm, 15);
+  assert.equal(items[4].price, 2308);
+});
