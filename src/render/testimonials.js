@@ -19,14 +19,18 @@ export function reviewCard(t, lang, { clamp = true, listings = null } = {}) {
   const stars = t.rating ? '★'.repeat(Math.round(t.rating)) + '☆'.repeat(5 - Math.round(t.rating)) : '';
   const propId = t.property ? parseInt(String(t.property).replace(/\D/g, ''), 10) : null;
   const listing = propId && listings ? listings.find((l) => l.id === propId || l.ref.replace(/\D/g, '') === String(propId)) : null;
-  return html`<article class="review" lang="${t.lang || lang}">
+  const original = t.lang || 'bg';
+  const translated = original !== lang && t[`text_${lang}`];
+  const text = translated || t.text;
+  const note = translated ? tt.translatedFrom[original] : '';
+  return html`<article class="review" lang="${translated ? lang : original}">
   ${stars ? html`<div class="review-stars" aria-label="${t.rating}/5">${stars}</div>` : ''}
-  <p class="review-text ${clamp ? 'clamp' : ''}">${t.text}</p>
+  <p class="review-text ${clamp ? 'clamp' : ''}">${text}</p>
   <div class="review-foot">
     <span class="review-avatar" aria-hidden="true">${initials(t.name, lang)}</span>
     <div>
       <div class="review-name">${displayName(t, lang)}</div>
-      <div class="review-meta">${[t.date ? fmtDate(t.date, lang) : null, t.property ? (listing ? html`<a href="${href(lang, `/imot/${listing.id}/${listing.slug}`)}">${tt.reviewProperty} ${t.property}</a>` : `${tt.reviewProperty} ${t.property}`) : null].filter(Boolean).map((x, i) => html`${i ? ' · ' : ''}${x}`)}</div>
+      <div class="review-meta">${[t.date ? fmtDate(t.date, lang) : null, note || null, t.property ? (listing ? html`<a href="${href(lang, `/imot/${listing.id}/${listing.slug}`)}">${tt.reviewProperty} ${t.property}</a>` : `${tt.reviewProperty} ${t.property}`) : null].filter(Boolean).map((x, i) => html`${i ? ' · ' : ''}${x}`)}</div>
     </div>
   </div>
 </article>`;

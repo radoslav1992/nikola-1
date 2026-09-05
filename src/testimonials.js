@@ -176,3 +176,67 @@ export async function fetchTestimonials(fetchImpl = fetch, { log = () => {} } = 
   if (!items.length) throw new Error('No testimonials found — page layout unknown or request blocked');
   return { items, fetchedAt: new Date().toISOString(), source: FEEDBACK_URL };
 }
+
+/* ───────────────────────────── translation ─────────────────────────────
+ * Reviews are shown in the visitor's language. Translations are carried over from the previous
+ * cache (matched by text prefix) and only missing ones are produced — via Workers AI when the
+ * binding exists, otherwise the original text is shown.
+ */
+
+const TRANSLATE_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
+const LANG_NAME = { bg: 'Bulgarian', en: 'English' };
+
+export function textKey(text) {
+  return String(text || '').slice(0, 80).toLowerCase();
+}
+
+export async function translateText(env, text, from, to) {
+  if (!env?.AI?.run) return null;
+  const res = await env.AI.run(TRANSLATE_MODEL, {
+    messages: [
+      { role: 'system', content: `You translate customer reviews of a Bulgarian real-estate agent from ${LANG_NAME[from]} to ${LANG_NAME[to]}. Translate faithfully and naturally, keep names and tone, do not add or omit anything. Reply with the translation only, no quotes or commentary.` },
+      { role: 'user', content: text },
+    ],
+    max_tokens: 700,
+    temperature: 0.1,
+  });
+  const out = String(typeof res === 'string' ? res : res?.response ?? '').trim().replace(/^["“„]|["”“]$/g, '');
+  return out.length >= 10 && out.length <= text.length * 3 ? out : null;
+}
+
+/**
+ * Ensure every item has `text_<otherLang>`. Mutates items. Never throws.
+ * `previous` supplies already-known translations so AI is only called for new reviews.
+ */
+export async function translateTestimonials(env, items, previous = [], { log = () => {}, translator = translateText } = {}) {
+  const hasTranslation = (p) => Object.keys(p || {}).some((k) => k.startsWith('text_') && p[k]);
+  const known = new Map();
+  for (const p of previous) {
+    const k = textKey(p.text);
+    const cur = known.get(k);
+    if (!cur || (p.translation === 'manual' && cur.translation !== 'manual') || (!hasTranslation(cur) && hasTranslation(p))) known.set(k, p);
+  }
+  for (const t of items) {
+    const from = t.lang || 'bg';
+    const to = from === 'bg' ? 'en' : 'bg';
+    const field = `text_${to}`;
+    const prev = known.get(textKey(t.text));
+    if (prev?.[field]) {
+      t[field] = prev[field];
+      t.translation = prev.translation || 'ai';
+      continue;
+    }
+    if (t[field]) continue;
+    try {
+      const out = await translator(env, t.text, from, to);
+      if (out) {
+        t[field] = out;
+        t.translation = 'ai';
+        log(`translated review by ${t.name || 'anonymous'} → ${to}`);
+      }
+    } catch (err) {
+      log(`translation failed: ${err.message}`);
+    }
+  }
+  return items;
+}

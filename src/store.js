@@ -8,7 +8,7 @@ import seed from '../data/seed.json';
 import { fetchAllListings, fetchDetail } from './scraper.js';
 import { attachCoords } from './geo.js';
 import testimonialsSeed from '../data/testimonials.json';
-import { fetchTestimonials } from './testimonials.js';
+import { fetchTestimonials, translateTestimonials } from './testimonials.js';
 
 const LISTINGS_KEY = 'listings:v2';
 const CACHE_ORIGIN = 'https://cache.ni-imoti.internal';
@@ -196,13 +196,16 @@ export async function storeLead(env, lead) {
 
 /* ─────────── testimonials ─────────── */
 
-const TESTIMONIALS_KEY = 'testimonials:v1';
+const TESTIMONIALS_KEY = 'testimonials:v2';
 let inflightTestimonials = null;
 
 export async function refreshTestimonials(env, { log = console.log } = {}) {
   if (inflightTestimonials) return inflightTestimonials;
   inflightTestimonials = (async () => {
     const data = await fetchTestimonials(fetch, { log });
+    const cached = (await kvGet(env, TESTIMONIALS_KEY)) || (await cacheGet(TESTIMONIALS_KEY));
+    // Hand-written translations in the seed win over AI ones; anything else is reused from the cache.
+    await translateTestimonials(env, data.items, [...(cached?.items || []), ...testimonialsSeed.items], { log });
     await Promise.all([kvPut(env, TESTIMONIALS_KEY, data), cachePut(TESTIMONIALS_KEY, data, LISTINGS_CACHE_SECONDS)]);
     log(`Stored ${data.items.length} testimonials`);
     return data;
