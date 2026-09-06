@@ -128,7 +128,7 @@ async function handle(request, env, ctx) {
 async function handleApi(request, env, ctx, path, url, lang) {
   if (path === '/api/listings') {
     const data = await getListings(env, ctx);
-    return json({ total: data.items.length, sourceTotal: data.total, fetchedAt: data.fetchedAt, seed: Boolean(data.seed), items: data.items }, 200, { 'cache-control': 'public, max-age=300' });
+    return json({ total: data.items.length, priced: data.items.filter((l) => l.price != null).length, sourceTotal: data.total, fetchedAt: data.fetchedAt, seed: Boolean(data.seed), items: data.items }, 200, { 'cache-control': 'public, max-age=300' });
   }
 
   if (path === '/api/refresh') {
