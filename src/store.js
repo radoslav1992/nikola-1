@@ -10,7 +10,7 @@ import { attachCoords } from './geo.js';
 import testimonialsSeed from '../data/testimonials.json';
 import { fetchTestimonials, translateTestimonials } from './testimonials.js';
 
-const LISTINGS_KEY = 'listings:v2';
+const LISTINGS_KEY = 'listings:v3'; // bumped whenever the parser changes so a deploy re-scrapes immediately
 const CACHE_ORIGIN = 'https://cache.ni-imoti.internal';
 const DETAIL_TTL_SECONDS = 60 * 60 * 24 * 7; // 7 days
 const LISTINGS_CACHE_SECONDS = 60 * 60 * 24 * 14; // 14 days (we refresh far more often)

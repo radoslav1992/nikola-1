@@ -11,6 +11,7 @@
  *   /api/ask   (POST)     AI search / question about a property
  *   /api/contact (POST)   contact form
  *   /api/refresh          manual re-scrape (needs REFRESH_TOKEN secret)
+ *   /api/debug/source     what suprimmo actually serves + how we parse it (token if REFRESH_TOKEN set)
  *   /sitemap.xml, /healthz
  * Static files in ./public are served by the assets binding before the Worker runs.
  */
@@ -26,7 +27,7 @@ import { cardGrid, listingPath } from './render/components.js';
 import { toString } from './render/html.js';
 import { href, waLink } from './render/layout.js';
 import { SITE, AGENT } from './render/i18n.js';
-import { IMAGE_BASE, AGENT_PHOTO_URL } from './scraper.js';
+import { IMAGE_BASE, AGENT_PHOTO_URL, debugSource } from './scraper.js';
 
 export default {
   async fetch(request, env, ctx) {
@@ -131,6 +132,16 @@ async function handleApi(request, env, ctx, path, url, lang) {
     return json({ total: data.items.length, priced: data.items.filter((l) => l.price != null).length, sourceTotal: data.total, fetchedAt: data.fetchedAt, seed: Boolean(data.seed), items: data.items }, 200, { 'cache-control': 'public, max-age=300' });
   }
 
+  if (path === '/api/debug/source') {
+    const token = url.searchParams.get('token') || '';
+    if (env.REFRESH_TOKEN && token !== env.REFRESH_TOKEN) return json({ error: 'not found' }, 404);
+    try {
+      return json(await debugSource(fetch, { page: parseInt(url.searchParams.get('page') || '1', 10) || 1 }));
+    } catch (err) {
+      return json({ ok: false, error: String(err && err.message) }, 502);
+    }
+  }
+
   if (path === '/api/refresh') {
     const token = url.searchParams.get('token') || request.headers.get('x-refresh-token') || '';
     if (!env.REFRESH_TOKEN || token !== env.REFRESH_TOKEN) return json({ error: 'not found' }, 404);
@@ -143,6 +154,9 @@ async function handleApi(request, env, ctx, path, url, lang) {
     }
   }
 
+  // Everything below is POST-only; a GET to an endpoint that does not exist is a 404, not a 405,
+  // so an unknown path (e.g. one added in a later deploy) says so plainly.
+  if (!['/api/ask', '/api/contact'].includes(path)) return json({ error: 'unknown endpoint', path }, 404);
   if (request.method !== 'POST') return json({ error: 'method not allowed' }, 405);
 
   const body = await readBody(request);

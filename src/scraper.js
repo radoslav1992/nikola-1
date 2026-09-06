@@ -13,6 +13,7 @@ export const BROKER_PATH = '/oferti-na-brokera-nikola-ivanov/';
 export const IMAGE_BASE = 'https://static4.superimoti.bg/property-images';
 export const AGENT_PHOTO_URL = 'https://www.luximmo.bg/sales-agents-images/big/467_1.jpg';
 export const BROKER_ID = 467;
+export const BGN_PER_EUR = 1.95583;
 
 const BROWSER_HEADERS = {
   'user-agent':
@@ -176,8 +177,16 @@ export function parseCard(block, idFromAttr) {
   // server can spell the same thing (&nbsp; / U+00A0 / plain space between digits, &euro; / € /
   // &#8364;, single vs double quotes, extra wrapper tags) all parse identically.
   const { text: prcText, oldText } = priceText(block);
-  const priceM = prcText.match(/(Наем)?\s*(\d[\d\s]*?)\s*€(?!\s*\/\s*м\s*[²2])(\s*\/\s*месец)?/);
-  const price = priceM ? toInt(priceM[2]) : null;
+  let priceM = prcText.match(/(Наем)?\s*(\d[\d\s]*?)\s*(?:€|EUR|евро)(?!\s*\/\s*м\s*[²2])(\s*\/\s*месец)?/i);
+  let price = priceM ? toInt(priceM[2]) : null;
+  if (price == null) {
+    // The server may still quote BGN; convert at the fixed rate.
+    const bgn = prcText.match(/(Наем)?\s*(\d[\d\s]*?)\s*(?:лв\.?|BGN)(?!\s*\/\s*м\s*[²2])(\s*\/\s*месец)?/i);
+    if (bgn) {
+      priceM = bgn;
+      price = Math.round(toInt(bgn[2]) / BGN_PER_EUR);
+    }
+  }
   const rent = Boolean(priceM && (priceM[1] || priceM[3])) || /badge light[^>]*>\s*под наем/i.test(block);
   const oldPrice = toInt((oldText.match(/\d[\d\s]*/) || [])[0]);
   const discount = toInt((prcText.match(/-\s*(\d+)\s*%/) || block.match(/>\s*-\s*(\d+)\s*%/) || [])[1]);
@@ -453,4 +462,42 @@ export function parseCoords(text) {
     if (m) return { lat: parseFloat(m[1]), lng: parseFloat(m[2]) };
   }
   return null;
+}
+
+/**
+ * Diagnostics for /api/debug/source: what suprimmo actually serves for a listing page and how we
+ * parse it. Returns only small excerpts of a public page — enough to fix the parser without
+ * having to reproduce the request from elsewhere.
+ */
+export async function debugSource(fetchImpl = fetch, { page = 1 } = {}) {
+  const url = pageUrl(page);
+  const res = await fetchImpl(url, { headers: BROWSER_HEADERS, redirect: 'follow', cf: { cacheTtl: 0 } });
+  const contentType = res.headers?.get?.('content-type') || '';
+  const bytes = new Uint8Array(await res.arrayBuffer());
+  const html = decodeHtmlBytes(bytes, contentType);
+  const parsed = parseListingPage(html);
+  const excerpt = (re, span = 400) => {
+    const m = html.match(re);
+    return m ? html.slice(Math.max(0, m.index - Math.floor(span / 3)), m.index + span) : null;
+  };
+  return {
+    ok: res.ok,
+    status: res.status,
+    url,
+    finalUrl: res.url || null,
+    contentType,
+    bytes: bytes.length,
+    charset: sniffCharset(bytes, contentType),
+    meta: parsePageMeta(html),
+    cards: parsed.items.length,
+    priced: parsed.items.filter((l) => l.price != null).length,
+    sample: parsed.items.slice(0, 3).map(({ id, title, price, oldPrice, discount, pricePerSqm, rent }) => ({ id, title, price, oldPrice, discount, pricePerSqm, rent })),
+    priceBlocks: [...html.matchAll(/<div[^>]*class=["']?prc\b/g)].slice(0, 2).map((m) => html.slice(m.index, m.index + 1200).split(/<a\s/)[0]),
+    excerpts: {
+      currency: excerpt(/€|&euro;|&#8364;|лв\.|EUR/),
+      currConv: excerpt(/curr_conv/),
+      foot: excerpt(/class=["']?foot\b/, 1200),
+      firstCard: excerpt(/data-prop-id=/, 1500),
+    },
+  };
 }
