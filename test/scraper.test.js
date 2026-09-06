@@ -233,3 +233,11 @@ test('price on request stays null instead of picking up another number', () => {
   assert.equal(first.oldPrice, null);
   assert.equal(first.pricePerSqm, 15);
 });
+
+test('prices quoted in BGN are converted to EUR at the fixed rate', () => {
+  const html = page1.replace(/&nbsp;110 000 <span class="curr_conv">€<\/span>/, '&nbsp;215 141 лв.');
+  const first = parseListingPage(html).items[0];
+  assert.equal(first.price, 110000);
+  assert.equal(first.oldPrice, 179000);
+  assert.equal(first.rent, false);
+});
