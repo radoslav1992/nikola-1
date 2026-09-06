@@ -154,6 +154,9 @@ async function handleApi(request, env, ctx, path, url, lang) {
     }
   }
 
+  // Everything below is POST-only; a GET to an endpoint that does not exist is a 404, not a 405,
+  // so an unknown path (e.g. one added in a later deploy) says so plainly.
+  if (!['/api/ask', '/api/contact'].includes(path)) return json({ error: 'unknown endpoint', path }, 404);
   if (request.method !== 'POST') return json({ error: 'method not allowed' }, 405);
 
   const body = await readBody(request);
