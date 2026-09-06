@@ -203,3 +203,33 @@ test('price parsing tolerates &euro; entities', () => {
   assert.equal(items[0].pricePerSqm, 15);
   assert.equal(items[4].price, 2308);
 });
+
+test('price parsing is independent of how the server spells the markup', () => {
+  const fields = (html) => parseListingPage(html).items.map((l) => [l.id, l.price, l.oldPrice, l.discount, l.pricePerSqm, l.rent]);
+  const expected = fields(page1);
+  assert.ok(expected.every(([, price]) => price != null), 'baseline fixture has a price for every card');
+  assert.deepEqual(expected[0].slice(1), [110000, 179000, 39, 15, false]);
+  assert.deepEqual(expected[4].slice(1), [2308, null, null, null, true]);
+
+  const variants = {
+    'nbsp entity between digits': page1.replace(/(\d) (\d)/g, '$1&nbsp;$2'),
+    'raw U+00A0 between digits': page1.replace(/(\d) (\d)/g, '$1 $2'),
+    'no leading nbsp': page1.replace(/&nbsp;(\d)/g, '$1'),
+    'numeric euro entity': page1.replace(/€/g, '&#8364;'),
+    'single-quoted attributes in the price block': page1.replace(/class="(prc|color-alert |curr_conv|font-\w+)"/g, "class='$1'"),
+    'extra attributes on the currency span': page1.replace(/<span class="curr_conv">/g, '<span class="curr_conv" data-cur="EUR">'),
+    'price wrapped in <b>': page1.replace(/&nbsp;(\d[\d ]*) <span class="curr_conv">/g, '&nbsp;<b>$1</b> <span class="curr_conv">'),
+    'collapsed whitespace': page1.replace(/>\s+</g, '><').replace(/\s{2,}/g, ' '),
+  };
+  for (const [name, html] of Object.entries(variants)) {
+    assert.deepEqual(fields(html), expected, name);
+  }
+});
+
+test('price on request stays null instead of picking up another number', () => {
+  const html = page1.replace(/&nbsp;110 000 <span class="curr_conv">€<\/span>/, 'Цена при запитване').replace(/<s class="color-alert ">179 000 <span class="curr_conv">€<\/span><\/s>/, '');
+  const first = parseListingPage(html).items[0];
+  assert.equal(first.price, null);
+  assert.equal(first.oldPrice, null);
+  assert.equal(first.pricePerSqm, 15);
+});

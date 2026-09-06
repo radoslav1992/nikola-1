@@ -124,6 +124,18 @@ function labelToField(label) {
   return null;
 }
 
+/**
+ * Text of a card's price block, with the struck-out old price separated out.
+ * Falls back to the whole card when the .prc container is missing.
+ */
+function priceText(block) {
+  const i = block.search(/<div[^>]*class=["']?prc\b/);
+  const raw = i >= 0 ? block.slice(i, i + 2000).split(/<a\s/)[0] : block;
+  const oldM = raw.match(/<s[^>]*>([\s\S]*?)<\/s>/);
+  return { text: clean(raw.replace(/<s[^>]*>[\s\S]*?<\/s>/g, ' ')), oldText: oldM ? clean(oldM[1]) : '' };
+}
+
+
 export function parseCard(block, idFromAttr) {
   const id = idFromAttr ?? toInt((block.match(/data-prop-id="(\d+)"/) || [])[1]);
   if (!id) return null;
@@ -159,12 +171,17 @@ export function parseCard(block, idFromAttr) {
     if (field && stats[field] == null) stats[field] = toInt(m[2]);
   }
 
-  const priceM = block.match(/(Наем)?(?:&nbsp;| )([\d\s ]+?)\s*<span class="curr_conv">(?:€|&euro;|&#8364;)<\/span>(\/месец)?/);
+  // Price block (<div class="prc">): "[Наем] 110 000 € [/месец]", optionally preceded by a struck-out
+  // old price and followed by "15 €/м²". We match on the *decoded text* so that the many ways the
+  // server can spell the same thing (&nbsp; / U+00A0 / plain space between digits, &euro; / € /
+  // &#8364;, single vs double quotes, extra wrapper tags) all parse identically.
+  const { text: prcText, oldText } = priceText(block);
+  const priceM = prcText.match(/(Наем)?\s*(\d[\d\s]*?)\s*€(?!\s*\/\s*м\s*[²2])(\s*\/\s*месец)?/);
   const price = priceM ? toInt(priceM[2]) : null;
   const rent = Boolean(priceM && (priceM[1] || priceM[3])) || /badge light[^>]*>\s*под наем/i.test(block);
-  const oldPrice = toInt((block.match(/<s class="color-alert[^"]*">\s*([\d\s ]+?)\s*<span class="curr_conv">/) || [])[1]);
-  const discount = toInt((block.match(/<span class="font-small">\s*-(\d+)%/) || [])[1]);
-  const pricePerSqm = toFloat((block.match(/([\d.,]+)\s*(?:€|&euro;|&#8364;)\/м(?:²|&sup2;|&#178;)/) || [])[1]);
+  const oldPrice = toInt((oldText.match(/\d[\d\s]*/) || [])[0]);
+  const discount = toInt((prcText.match(/-\s*(\d+)\s*%/) || block.match(/>\s*-\s*(\d+)\s*%/) || [])[1]);
+  const pricePerSqm = toFloat((prcText.match(/(\d[\d\s]*(?:[.,]\d+)?)\s*€\s*\/\s*(?:м\s*[²2]|кв)/) || [])[1]);
 
   const akt16 = /badge act\b[\s\S]{0,80}?акт\s*16/i.test(block);
   const reduced = /badge alert/.test(block) || discount != null || oldPrice != null;
