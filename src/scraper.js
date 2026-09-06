@@ -88,7 +88,9 @@ export function parsePageMeta(html) {
   return { total: total ?? null, page, pages };
 }
 
-const CARD_SPLIT = /<div class="panel rel shadow offer" data-prop-id="(\d+)"/g;
+// The card wrapper, tolerant of attribute quoting and of extra classes/attributes: the server HTML
+// and the post-script DOM differ in both.
+const CARD_SPLIT = /<div[^>]*class=["'][^"']*\boffer\b[^"']*["'][^>]*data-prop-id=\s*["']?(\d+)/g;
 
 /** Parse one search-results page into { items, total, page, pages }. */
 export function parseListingPage(html) {
@@ -137,27 +139,55 @@ function priceText(block) {
 }
 
 
+/** All values of an HTML attribute in a chunk of markup, regardless of quote style. */
+function attrValues(block, name) {
+  const re = new RegExp(`\\b${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)')`, 'gi');
+  return [...block.matchAll(re)].map((m) => decodeEntities(m[1] ?? m[2] ?? ''));
+}
+
+/**
+ * The property title. suprimmo repeats it in several attributes and the quoting differs between
+ * the server HTML (single quotes, "<title> <photo index> - SUPRIMMO") and the DOM after its
+ * scripts run (double quotes, plain title on <a class="lnk">), so gather every candidate and
+ * take the best one instead of relying on a single spelling.
+ */
+function cardTitle(block) {
+  const candidates = [];
+  for (const raw of [...attrValues(block, 'title'), ...attrValues(block, 'alt')]) {
+    const v = clean(raw);
+    if (!v) continue;
+    const branded = /-\s*SUPRIMMO\s*$/i.test(v);
+    // "<title> 3 - SUPRIMMO" — the trailing number is the photo index, not part of the title.
+    const text = branded ? v.replace(/\s*-\s*SUPRIMMO\s*$/i, '').replace(/\s+\d{1,3}$/, '').trim() : v;
+    if (text.length > 3) candidates.push({ text, branded });
+  }
+  if (!candidates.length) return '';
+  // Prefer the branded ones (always the full title), then the longest.
+  candidates.sort((a, b) => Number(b.branded) - Number(a.branded) || b.text.length - a.text.length);
+  return candidates[0].text;
+}
+
 export function parseCard(block, idFromAttr) {
-  const id = idFromAttr ?? toInt((block.match(/data-prop-id="(\d+)"/) || [])[1]);
+  const id = idFromAttr ?? toInt(attrValues(block, 'data-prop-id')[0]);
   if (!id) return null;
 
-  const urlM = block.match(/data-url="([^"]+)"/) || block.match(/href="(https:\/\/www\.suprimmo\.bg\/imot-\d+-[^"]+)"/);
-  const url = urlM ? decodeEntities(urlM[1]) : `${SOURCE_BASE}/imot-${id}/`;
+  const url =
+    attrValues(block, 'data-url').find((v) => /\/imot-\d+/.test(v)) ||
+    attrValues(block, 'href').find((v) => /suprimmo\.bg\/imot-\d+-/.test(v)) ||
+    `${SOURCE_BASE}/imot-${id}/`;
   const slug = (url.match(/imot-\d+-([^/?#]+)/) || [])[1] || '';
 
   const images = uniq(
     [...block.matchAll(/property-images\/(?:medium|big|small)\/([\w.-]+?\.jpe?g)/gi)].map((m) => m[1]),
   );
 
-  const titleM = block.match(/<a class="lnk" title="([^"]*)"/) || block.match(/alt="([^"]*?)\s*\d*"\s+title=/);
-  let title = clean(titleM ? titleM[1] : '');
-  title = title.replace(/\s*-\s*SUPRIMMO\s*$/i, '').trim();
+  const title = cardTitle(block);
 
-  const type = clean((block.match(/<div class="ttl">([\s\S]*?)<\/div>/) || [])[1]);
+  const type = clean((block.match(/<div[^>]*class=["\']?ttl["\']?[^>]*>([\s\S]*?)<\/div>/) || [])[1]);
 
   let place = '';
   let region = '';
-  const locM = block.match(/<div class="loc">([\s\S]*?)(?:<a\b|<\/div>)/);
+  const locM = block.match(/<div[^>]*class=["\']?loc["\']?[^>]*>([\s\S]*?)(?:<a\b|<\/div>)/);
   if (locM) {
     const parts = locM[1].split(/<br\s*\/?>/i);
     place = clean(parts[0]).replace(/\s*\/\s*/g, ' / ');
@@ -166,7 +196,7 @@ export function parseCard(block, idFromAttr) {
   }
 
   const stats = { area: null, plotArea: null, bedrooms: null, floors: null, bathrooms: null };
-  const lst = (block.match(/<div class="lst">([\s\S]*?)<\/div>/) || [])[1] || '';
+  const lst = (block.match(/<div[^>]*class=["\']?lst["\']?[^>]*>([\s\S]*?)<\/div>/) || [])[1] || '';
   for (const m of lst.matchAll(/<b>([\s\S]*?)<\/b>\s*<i>([\s\S]*?)<\/i>/g)) {
     const field = labelToField(clean(m[1]));
     if (field && stats[field] == null) stats[field] = toInt(m[2]);
@@ -290,7 +320,7 @@ export function parseDetail(html, id) {
   const headM = html.match(/<h[1-4][^>]*>\s*(?:Описание|Описание на имота|Подробно описание)[^<]*<\/h[1-4]>([\s\S]*?)(?=<h[1-4]\b|<section\b|<footer\b|$)/i);
   if (headM) paragraphs = paragraphsFromHtml(headM[1]);
   if (paragraphs.join(' ').length < 80) {
-    const idM = html.match(/<div[^>]+(?:id|class)="[^"]*(?:description|descr|prop-desc|prop_text|imot-text)[^"]*"[^>]*>([\s\S]*?)<\/div>\s*<\/div>/i);
+    const idM = html.match(/<div[^>]+(?:id|class)=["'][^"']*(?:description|descr|prop-desc|prop_text|imot-text)[^"']*["'][^>]*>([\s\S]*?)<\/div>\s*<\/div>/i);
     if (idM) {
       const alt = paragraphsFromHtml(idM[1]);
       if (alt.join(' ').length > paragraphs.join(' ').length) paragraphs = alt;
@@ -491,6 +521,7 @@ export async function debugSource(fetchImpl = fetch, { page = 1 } = {}) {
     meta: parsePageMeta(html),
     cards: parsed.items.length,
     priced: parsed.items.filter((l) => l.price != null).length,
+    titled: parsed.items.filter((l) => l.title).length,
     sample: parsed.items.slice(0, 3).map(({ id, title, price, oldPrice, discount, pricePerSqm, rent }) => ({ id, title, price, oldPrice, discount, pricePerSqm, rent })),
     priceBlocks: [...html.matchAll(/<div[^>]*class=["']?prc\b/g)].slice(0, 2).map((m) => html.slice(m.index, m.index + 1200).split(/<a\s/)[0]),
     excerpts: {

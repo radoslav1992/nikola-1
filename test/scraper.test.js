@@ -241,3 +241,35 @@ test('prices quoted in BGN are converted to EUR at the fixed rate', () => {
   assert.equal(first.oldPrice, 179000);
   assert.equal(first.rent, false);
 });
+
+test('parses the server HTML spelling: single-quoted attributes, hex euro entities, no .lnk anchor', () => {
+  // What suprimmo actually sends (confirmed via /api/debug/source) differs from the DevTools copy
+  // the fixture was taken from: attributes are single-quoted, € is &#x20AC;, and the <a class="lnk">
+  // that carries a clean title only exists after the page's own scripts have run. The title then has
+  // to come from the image title/alt attributes, which append the photo index and " - SUPRIMMO".
+  const serverHtml = page1
+    .replace(/<a class="lnk"[^>]*>/g, '<a>')
+    .replace(/€/g, '&#x20AC;')
+    .replace(/class="([^"]*)"/g, "class='$1'")
+    .replace(/\b(alt|title|data-url|data-prop-id|href)="([^"]*)"/g, "$1='$2'");
+
+  const { items } = parseListingPage(serverHtml);
+  assert.equal(items.length, 6);
+
+  const plot = items[0];
+  assert.equal(plot.id, 90511);
+  assert.equal(plot.title, 'Урегулиран поземлен имот с ПУП на главен път София – Варна, близо до Севлиево');
+  assert.equal(plot.price, 110000);
+  assert.equal(plot.oldPrice, 179000);
+  assert.equal(plot.pricePerSqm, 15);
+  assert.equal(plot.type, 'Парцел в регулация');
+  assert.equal(plot.place, 'близо до гр. Севлиево');
+  assert.equal(plot.region, 'Габровска област');
+  assert.equal(plot.area, 7399);
+  assert.ok(plot.images.length >= 2);
+  assert.match(plot.url, /^https:\/\/www\.suprimmo\.bg\/imot-90511-/);
+
+  assert.equal(items[1].title, 'Двуетажна къща в село на 35 км от Павликени');
+  assert.equal(items[4].rent, true);
+  assert.ok(items.every((l) => l.title && l.price != null), 'every card keeps a title and a price');
+});
