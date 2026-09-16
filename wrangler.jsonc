@@ -51,8 +51,10 @@
       "migrations_dir": "migrations"
     }
   ],
-  // Optional image storage: create the bucket before enabling this binding.
-  // "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "ni-imoti-media" }],
+  // Private property photos are served through the Worker with publication checks.
+  "r2_buckets": [
+    { "binding": "MEDIA", "bucket_name": "ni-imoti-media" }
+  ],
 
   /* ── OPTIONAL BUT RECOMMENDED: persistent listings cache ────────────────────────────
    * 1. Cloudflare dashboard → Storage & Databases → KV → Create namespace, name: ni-imoti
