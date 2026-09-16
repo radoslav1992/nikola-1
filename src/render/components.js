@@ -90,17 +90,19 @@ export function agentCard(lang, { listing = null, compact = false } = {}) {
 </div>`;
 }
 
-export function contactForm(lang, { listing = null, compact = false } = {}) {
+export function contactForm(lang, { listing = null, compact = false, seller = false } = {}) {
   const t = T[lang];
-  const msgPh = listing ? t.formMsgProp(listing.ref) : t.formMsg;
+  const msgPh = seller ? t.sellerMessage : listing ? t.formMsgProp(listing.ref) : t.formMsg;
   return html`<form class="contact-form ${compact ? 'compact' : ''}" method="post" action="/api/contact" data-contact>
   <input type="hidden" name="lang" value="${lang}">
+  <input type="hidden" name="intent" value="${seller ? 'sell' : 'buy'}">
   ${listing ? html`<input type="hidden" name="listingId" value="${listing.id}"><input type="hidden" name="listingRef" value="${listing.ref}"><input type="hidden" name="listingTitle" value="${listing.title}">` : ''}
   <input type="text" name="website" tabindex="-1" autocomplete="off" class="hp" aria-hidden="true">
   <label><span class="sr-only">${t.formName}</span><input name="name" placeholder="${t.formName}" required maxlength="120" autocomplete="name"></label>
   <label><span class="sr-only">${t.formPhone}</span><input name="contact" placeholder="${t.formPhone}" required maxlength="160" autocomplete="tel"></label>
+  ${seller ? html`<label>${t.sellerLocation}<input name="propertyLocation" required maxlength="200" autocomplete="off"></label><label>${t.sellerType}<input name="propertyType" required maxlength="120" autocomplete="off"></label>` : ''}
   <label><span class="sr-only">${msgPh}</span><textarea name="message" rows="${compact ? 3 : 4}" placeholder="${msgPh}" maxlength="3000"></textarea></label>
-  <button type="submit" class="btn btn-primary">${listing ? t.formEnquire : t.formSend}</button>
+  <button type="submit" class="btn btn-primary">${seller ? t.sellerSend : listing ? t.formEnquire : t.formSend}</button>
   <p class="form-status" role="status" aria-live="polite"></p>
   ${compact ? '' : html`<p class="muted small">${t.formNote}</p>`}
 </form>`;

@@ -1,3 +1,4 @@
+import { buyerFacts } from '../knowledge.js';
 import { html, raw } from './html.js';
 import { T, SITE, typeLabel, placeLabel, regionLabel, fmtPrice, fmtArea, fmtNumber } from './i18n.js';
 import { page, href } from './layout.js';
@@ -98,16 +99,21 @@ export function renderProperty({ lang, data, listing: l, detail, env }) {
       </a>`}
     </div>
 
+    <section class="buyer-facts">
+      <h2>${t.buyerFactsTitle}</h2>
+      <dl class="buyer-facts-grid">${buyerFacts(l.id, lang).map((f, i) => html`<div><dt>${t.aiChips[i]}</dt><dd>${f.text || t.factUnknown}${f.text ? html`<small>${t.factSource}: ${f.source} · ${t.factReviewed}: ${f.reviewedAt}</small>` : ''}</dd></div>`)}</dl>
+    </section>
+
     <div class="ai-box">
       <div class="label-kicker"><span class="dot"></span>${t.aiKicker}</div>
       <h2>${t.aiTitle}</h2>
       <p class="muted">${t.aiSub}</p>
       <form class="ai-form" data-ai-ask data-lang="${lang}" data-listing="${l.id}">
-        <input name="q" placeholder="${t.aiPhProp}" maxlength="400" required>
+        <label class="sr-only" for="property-question">${t.aiTitle}</label><input id="property-question" name="q" placeholder="${t.aiPhProp}" maxlength="400" required>
         <button type="submit" class="btn btn-primary">${t.aiAsk}</button>
       </form>
       <div class="chips chips-sm">${t.aiChips.map((c) => html`<button type="button" class="pill" data-ai-chip>${c}</button>`)}</div>
-      <div class="ai-result" hidden></div>
+      <div class="ai-result" aria-live="polite" aria-busy="false" hidden></div>
     </div>
   </div>
 

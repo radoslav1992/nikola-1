@@ -30,6 +30,7 @@ export const SITE = {
 
 export const T = {
   bg: {
+    sellerLink: 'Предложете имот', sellerTitle: 'Имате имот за продажба?', sellerSub: 'Разкажете накратко за имота и оставете контакт. Никола ще се свърже с вас, за да обсъдите следващите стъпки.', sellerLocation: 'Къде се намира имотът?', sellerType: 'Вид на имота', sellerMessage: 'Площ, състояние, желана цена и друга полезна информация', sellerSend: 'Изпрати предложение', regionFilter: 'Район', anyRegion: 'Всички райони', regionBrowse: 'Разгледайте района', aiCriteria: 'Насочете търсенето', aiHint: 'Изберете район, бюджет и вид имот или опишете свободно какво търсите.', aiExamples: ['Къща до 50 000 евро близо до Севлиево', 'Парцел близо до Габрово', 'Къща в Априлци'], buyerFactsTitle: 'Полезно за купувача', factUnknown: 'Няма потвърдена информация. Попитайте Никола.', factSource: 'Източник', factReviewed: 'Проверено',
     brandTag: 'Недвижими имоти', navProps: 'Имоти', navRegions: 'Региони', navReduced: 'Намалени', navAbout: 'За Никола', navContact: 'Контакт',
     metaHome: 'НИ Имоти — къщи, парцели и имоти в Централна Стара планина и Северна България. Лични консултации от Никола Иванов, Велико Търново.',
     heroKicker: 'Имоти в Стара планина и Северна България',
@@ -61,7 +62,7 @@ export const T = {
     descTitle: 'Описание', descMissing: 'Пълното описание и всички снимки са в оригиналната обява на SUPRIMMO.', descSource: 'Виж обявата в SUPRIMMO →',
     mapTitle: 'Местоположение', mapSub: 'Точният адрес се предоставя при оглед. Отворете картата за ориентир в района.', mapOpen: 'Отвори картата', mapNote: 'Приблизително',
     aiKicker: 'Изкуствен интелект', aiTitle: 'Попитайте за този имот', aiSub: 'Отговорите се базират на информацията в обявата. За всичко останало — обадете се на Никола.', aiPhProp: 'Например: Има ли ток и вода в имота?', aiAsk: 'Попитай',
-    aiChips: ['Колко е данъкът и таксите при покупка?', 'Подходящ ли е за целогодишно живеене?', 'Какво е разстоянието до най-близкия град?'],
+    aiChips: ['Какъв е достъпът до имота?', 'Подходящ ли е за целогодишно живеене?', 'Какво има в селото и наблизо?', 'Колко е далеч най-близкият град?'],
     agentNote: 'Отговорен брокер за този имот. Пишете ми — ще отговоря честно и на въпросите, които не са в обявата.',
     formMsgProp: (ref) => `Интересувам се от имот ${ref}…`, formEnquire: 'Изпрати запитване',
     viewingNote: 'Огледи — понеделник до петък или по лична договорка. Може да съчетаем няколко имота в района в един ден.',
@@ -78,6 +79,7 @@ export const T = {
     langSwitch: 'English', otherLang: 'en',
   },
   en: {
+    sellerLink: 'Offer a property', sellerTitle: 'Have a property to sell?', sellerSub: 'Tell us a little about your property and leave your contact details. Nikola will get in touch to discuss the next steps.', sellerLocation: 'Where is the property?', sellerType: 'Property type', sellerMessage: 'Size, condition, asking price and other useful information', sellerSend: 'Send property details', regionFilter: 'Area', anyRegion: 'All areas', regionBrowse: 'Explore this area', aiCriteria: 'Guide your search', aiHint: 'Choose an area, budget and property type, or describe what you are looking for.', aiExamples: ['House under 50 000 euros near Sevlievo', 'Plot near Gabrovo', 'House in Apriltsi'], buyerFactsTitle: 'Useful information for buyers', factUnknown: 'No confirmed information yet. Please ask Nikola.', factSource: 'Source', factReviewed: 'Reviewed',
     brandTag: 'Real estate', navProps: 'Properties', navRegions: 'Regions', navReduced: 'Reduced', navAbout: 'About Nikola', navContact: 'Contact',
     metaHome: 'NI Imoti — houses, plots and property in the central Balkan Mountains and northern Bulgaria. Personal guidance from Nikola Ivanov, Veliko Tarnovo.',
     heroKicker: 'Properties in the Balkan Mountains and northern Bulgaria',
@@ -109,7 +111,7 @@ export const T = {
     descTitle: 'Description', descMissing: 'The full description and all photos are in the original SUPRIMMO listing (in Bulgarian).', descSource: 'Open the SUPRIMMO listing →',
     mapTitle: 'Location', mapSub: 'The exact address is shared at viewing. Open the map to get a feel for the area.', mapOpen: 'Open map', mapNote: 'Approximate',
     aiKicker: 'AI assistant', aiTitle: 'Ask about this property', aiSub: 'Answers draw on the listing information. For anything else — call Nikola.', aiPhProp: 'For example: Does the property have electricity and water?', aiAsk: 'Ask',
-    aiChips: ['What are the purchase taxes and fees?', 'Is it suitable for year-round living?', 'How far is the nearest town?'],
+    aiChips: ['What is access to the property like?', 'Is it suitable for year-round living?', 'What is available in the village and nearby?', 'How far is the nearest town?'],
     agentNote: 'Responsible agent for this property. Get in touch — I will answer honestly, including the questions the listing does not cover.',
     formMsgProp: (ref) => `I am interested in property ${ref}…`, formEnquire: 'Send enquiry',
     viewingNote: 'Viewings Monday to Friday or by arrangement. Several properties in the area can be combined in one day.',
@@ -158,7 +160,7 @@ export const CATEGORIES = [
   { key: 'business', label: 'catBusiness', test: (l) => /склад|магазин|офис|хотел|ресторант|бизнес|цех|сград|ферм|производ|промиш|гости/i.test(l.type) },
   { key: 'apartments', label: 'catApartments', test: (l) => /апартамент|мезонет|пентхаус|студио/i.test(l.type) },
   { key: 'rent', label: 'catRent', test: (l) => l.rent },
-  { key: 'reduced', label: 'catReduced', test: (l) => l.reduced },
+  { key: 'reduced', hidden: true, label: 'catReduced', test: (l) => l.reduced },
 ];
 
 /* ───────────── transliteration (Bulgarian official-ish) ───────────── */

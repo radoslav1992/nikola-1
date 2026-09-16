@@ -1,6 +1,7 @@
 /**
  * Filtering, sorting and grouping of listings (pure functions, shared by pages, the API and AI fallback).
  */
+import { isRegionKey, regionOf } from './regions.js';
 import { CATEGORIES, transliterate } from './render/i18n.js';
 
 export const PAGE_SIZE = 24;
@@ -48,6 +49,7 @@ export function parseFilters(searchParams) {
   return {
     q: g('q').slice(0, 200),
     loc: g('loc').slice(0, 120),
+    region: isRegionKey(g('region')) ? g('region') : '',
     type: g('type').slice(0, 80),
     cat: g('cat').slice(0, 40),
     deal: ['sale', 'rent'].includes(g('deal')) ? g('deal') : '',
@@ -71,6 +73,7 @@ export function applyFilters(items, f) {
     const cat = CATEGORIES.find((c) => c.key === f.cat);
     if (cat) out = out.filter(cat.test);
   }
+  if (f.region && isRegionKey(f.region)) out = out.filter((l) => regionOf(l) === f.region);
   if (f.type) out = out.filter((l) => l.type === f.type);
   if (f.deal === 'rent') out = out.filter((l) => l.rent);
   if (f.deal === 'sale') out = out.filter((l) => !l.rent);
@@ -163,10 +166,7 @@ export function heuristicSearch(items, query) {
     }
   }
 
-  let res = applyFilters(items, f);
-  if (!res.length && f.max) { f.max = null; res = applyFilters(items, f); }
-  if (!res.length && f.loc) { f.loc = ''; res = applyFilters(items, f); }
-  if (!res.length && f.cat) { f.cat = ''; res = applyFilters(items, f); }
+  const res = applyFilters(items, f);
   return { items: res.slice(0, 6), filters: f };
 }
 

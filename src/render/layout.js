@@ -27,7 +27,7 @@ export function telHref(num) {
 const NAV = [
   ['navProps', '/imoti'],
   ['navMap', '/karta'],
-  ['navReduced', '/imoti?cat=reduced'],
+  ['navRegions', '/#regions'],
   ['navReviews', '/otzivi'],
   ['navAbout', '/#about'],
   ['navContact', '/#contact'],
@@ -126,6 +126,7 @@ function footer(lang, updatedAt) {
     </div>
     <div class="footer-col footer-links">
       ${NAV.map(([k, p]) => html`<a href="${href(lang, p)}">${t[k]}</a>`)}
+      <a href="${href(lang, '/predlozhete-imot')}">${t.sellerLink}</a>
     </div>
     <div class="footer-col">
       <p class="muted small">${t.footerSource} <a href="${AGENT.sourceUrl}" rel="noopener" target="_blank">SUPRIMMO ↗</a>${updatedAt ? html` · ${t.footerUpdated}: ${fmtDate(updatedAt, lang)}` : ''}</p>

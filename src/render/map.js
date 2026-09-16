@@ -38,7 +38,7 @@ export function renderMap({ lang, data, filters, query, env }) {
 <section class="wrap">
   <div class="chips chips-sm" style="margin-bottom:14px">
     <a class="pill ${!filters.cat ? 'on' : ''}" href="${qsFor('')}">${t.fTypeAny}</a>
-    ${CATEGORIES.map((c) => {
+    ${CATEGORIES.filter((c) => !c.hidden).map((c) => {
       const n = data.items.filter(c.test).length;
       return n ? html`<a class="pill ${filters.cat === c.key ? 'on' : ''}" href="${qsFor(c.key)}">${t[c.label]} <sup>${n}</sup></a>` : '';
     })}
@@ -51,5 +51,5 @@ export function renderMap({ lang, data, filters, query, env }) {
   <noscript><p class="empty">${lang === 'en' ? 'The map needs JavaScript.' : 'Картата изисква JavaScript.'} <a href="${href(lang, '/imoti')}">${t.listView}</a></p></noscript>
 </section>`;
 
-  return page({ lang, path: '/karta', title: t.mapTitle2, description: t.mapSub2, body, updatedAt: data.fetchedAt, env, pageClass: 'map', leaflet: true, noindex: Boolean(query) });
+  return page({ lang, path: '/karta' + (query ? `?${query}` : ''), title: t.mapTitle2, description: t.mapSub2, body, updatedAt: data.fetchedAt, env, pageClass: 'map', leaflet: true, noindex: Boolean(query) });
 }
