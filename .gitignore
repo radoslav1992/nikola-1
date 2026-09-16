@@ -6,3 +6,5 @@ node_modules/
 .DS_Store
 worker-configuration.d.ts
 wrangler.local.jsonc
+
+public/assistant.js

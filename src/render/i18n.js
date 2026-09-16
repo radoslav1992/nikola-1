@@ -7,10 +7,10 @@
 export const AGENT = {
   name: { bg: 'Никола Иванов', en: 'Nikola Ivanov' },
   role: { bg: 'Консултант недвижими имоти · Офис Велико Търново (PROPERTY.BG / SUPRIMMO)', en: 'Real estate consultant · Veliko Tarnovo office (PROPERTY.BG / SUPRIMMO)' },
-  mobile: '+359 882 638 423',
+  mobile: '+359 884 128 117',
   office: '+359 62 588 042',
-  whatsapp: '+359 883 700 335',
-  whatsappDigits: '359883700335',
+  whatsapp: '+359 884 128 117',
+  whatsappDigits: '359884128117',
   address: { bg: 'гр. Велико Търново 5000, ул. Никола Пиколо 23', en: '23 Nikola Pikolo St., 5000 Veliko Tarnovo, Bulgaria' },
   mapsUrl: 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent('ул. Никола Пиколо 23, Велико Търново 5000'),
   languages: { bg: 'Български, Английски, Испански', en: 'Bulgarian, English, Spanish' },

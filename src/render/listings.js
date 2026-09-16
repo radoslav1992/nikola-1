@@ -14,13 +14,14 @@ export function renderListings({ lang, data, filters, env, path = '/imoti', quer
   const regions = regionChips(all);
 
   const activeCat = CATEGORIES.find((c) => c.key === filters.cat);
-  const title = filters.region ? REGION_NAMES[filters.region][lang] : activeCat ? t[activeCat.label] : filters.type ? typeLabel(filters.type, lang) : filters.loc ? `${t.listTitle}: ${lang === 'en' ? transliterate(filters.loc) : filters.loc}` : t.listTitle;
+  const title = filters.region ? (data.regions?.find(r=>r.key===filters.region)?.name || REGION_NAMES[filters.region])?.[lang] || filters.region : activeCat ? t[activeCat.label] : filters.type ? typeLabel(filters.type, lang) : filters.loc ? `${t.listTitle}: ${lang === 'en' ? transliterate(filters.loc) : filters.loc}` : t.listTitle;
 
   const qs = (overrides = {}) => {
     const p = new URLSearchParams();
     const f = { ...filters, ...overrides };
     if (f.q) p.set('q', f.q);
     if (f.loc) p.set('loc', f.loc);
+    if(f.near){p.set('near',f.near);p.set('radius',f.radius||20);}
     if (f.region) p.set('region', f.region);
     if (f.type) p.set('type', f.type);
     if (f.cat) p.set('cat', f.cat);
@@ -35,7 +36,7 @@ export function renderListings({ lang, data, filters, env, path = '/imoti', quer
 
   const sortOpts = [['top', t.sortTop], ['price_asc', t.sortPriceAsc], ['price_desc', t.sortPriceDesc], ['area_asc', t.sortAreaAsc], ['area_desc', t.sortAreaDesc]];
   const budgets = [['', t.fBudgetAny], ['0-30000', t.fBudget1], ['30000-60000', t.fBudget2], ['60000-120000', t.fBudget3], ['120000-', t.fBudget4]];
-  const hasFilters = filters.region || filters.q || filters.loc || filters.type || filters.cat || filters.deal || filters.min != null || filters.max != null;
+  const hasFilters = filters.near || filters.region || filters.q || filters.loc || filters.type || filters.cat || filters.deal || filters.min != null || filters.max != null;
 
   const body = html`
 <section class="wrap page-head">
@@ -47,7 +48,8 @@ export function renderListings({ lang, data, filters, env, path = '/imoti', quer
 <section class="wrap">
   <form class="panel filters filters-bar" method="get" action="${href(lang, path)}">
     <div class="filters-grid filters-grid-wide">
-      <label>${t.regionFilter}<select name="region"><option value="">${t.anyRegion}</option>${groupByRegion(all).map((g) => html`<option value="${g.key}" ${g.key === filters.region ? 'selected' : ''}>${REGION_NAMES[g.key][lang]}</option>`)}</select></label>
+      <label>${t.regionFilter}<select name="region"><option value="">${t.anyRegion}</option>${groupByRegion(all, data.regions).map((g) => html`<option value="${g.key}" ${g.key === filters.region ? 'selected' : ''}>${(g.name || REGION_NAMES[g.key])?.[lang] || g.key}</option>`)}</select></label>
+      <label>${lang==='en'?'Near settlement':'Близо до населено място'}<input name="near" value="${filters.near||''}" placeholder="${lang==='en'?'Within 20 km, straight line':'В радиус 20 км по права линия'}"></label>
       <label>${t.fLocation}<input name="loc" value="${filters.loc}" placeholder="${t.fLocationPh}" list="loc-list"></label>
       <datalist id="loc-list">${regions.map((r) => html`<option value="${r.key}">${lang === 'en' ? transliterate(r.label) : r.label}</option>`)}</datalist>
       <label>${t.fType}<select name="type"><option value="">${t.fTypeAny}</option>${types.map((ty) => html`<option value="${ty}" ${ty === filters.type ? 'selected' : ''}>${typeLabel(ty, lang)}</option>`)}</select></label>

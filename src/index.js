@@ -1,3 +1,11 @@
+import { stripImageMetadata } from './manage/image-metadata.js';
+import { adminPage, adminApi } from './manage/admin.js';
+import { HttpError, rateLimit, sameOrigin } from './manage/http.js';
+import { isAdmin } from './manage/auth.js';
+import { serveMedia } from './manage/media.js';
+import { settings, regions } from './manage/catalogue.js';
+import { assistantApi, agentTool, receiveWebhook, syncConversations, cleanup } from './manage/eleven.js';
+import { renderRegion } from './render/region.js';
 /**
  * НИ Имоти — Cloudflare Worker entry point.
  *
@@ -35,12 +43,14 @@ export default {
     try {
       return await handle(request, env, ctx);
     } catch (err) {
+      if (err instanceof HttpError) return json({error:err.message},err.status);
       console.error('Unhandled error', err && err.stack ? err.stack : err);
       return new Response('Internal error', { status: 500, headers: { 'content-type': 'text/plain; charset=utf-8' } });
     }
   },
 
   async scheduled(event, env, ctx) {
+    if (env.DB) ctx.waitUntil(syncConversations(env).catch(() => cleanup(env)));
     ctx.waitUntil(
       refreshListings(env, { network: true }).then(
         (d) => console.log(`cron: refreshed ${d.items.length} listings`),
@@ -77,6 +87,14 @@ async function handle(request, env, ctx) {
 
   if (path === '/healthz') return json({ ok: true, site: SITE.domain, time: new Date().toISOString() });
 
+  if (path === '/admin') return adminPage();
+  if (path.startsWith('/api/admin/')) return adminApi(request,env,ctx,refreshListings);
+  if (path.startsWith('/media/')) return serveMedia(request,env,await isAdmin(request,env));
+  if (path.startsWith('/api/assistant/')) return assistantApi(request,env,path);
+  if (path.startsWith('/api/agent/')) return agentTool(request,env,path.split('/').pop());
+  if (path === '/api/elevenlabs/webhook') return receiveWebhook(request,env);
+  env = {...env, SITE_SETTINGS: await settings(env)};
+
   if (path.startsWith('/img/')) return serveImage(request, path, ctx);
 
   if (path.startsWith('/api/')) return handleApi(request, env, ctx, path, url, lang);
@@ -86,23 +104,30 @@ async function handle(request, env, ctx) {
   if (path === '/predlozhete-imot') return htmlResponse(renderSeller({ lang, env }));
 
   if (path === '/') {
-    const [data, testimonials] = await Promise.all([getListings(env, ctx), getTestimonials(env, ctx)]);
+    const [data, testimonials] = await Promise.all([getListings(env, ctx, lang), getTestimonials(env, ctx)]);
     return htmlResponse(renderHome({ lang, data, env, testimonials }));
   }
 
   if (path === '/otzivi' || path === '/reviews') {
-    const [data, testimonials] = await Promise.all([getListings(env, ctx), getTestimonials(env, ctx)]);
+    const [data, testimonials] = await Promise.all([getListings(env, ctx, lang), getTestimonials(env, ctx)]);
     return htmlResponse(renderReviews({ lang, data, testimonials, env }));
   }
 
+  const regionMatch = path.match(/^\/raion\/([a-z0-9-]+)$/);
+  if (regionMatch) {
+    const data=await getListings(env,ctx,lang); const region=(data.regions||await regions(env)).find(r=>r.key===regionMatch[1]);
+    if(!region) return htmlResponse(renderNotFound({lang,env,path}),404);
+    return htmlResponse(renderRegion({lang,data,region,env}));
+  }
+
   if (path === '/imoti') {
-    const data = await getListings(env, ctx);
+    const data = await getListings(env, ctx, lang);
     const filters = parseFilters(url.searchParams);
     return htmlResponse(renderListings({ lang, data, filters, env, query: url.searchParams.toString() }));
   }
 
   if (path === '/karta' || path === '/map') {
-    const data = await getListings(env, ctx);
+    const data = await getListings(env, ctx, lang);
     const filters = parseFilters(url.searchParams);
     return htmlResponse(renderMap({ lang, data, filters, env, query: url.searchParams.toString() }));
   }
@@ -110,7 +135,7 @@ async function handle(request, env, ctx) {
   const propM = path.match(/^\/imot\/(\d+)(?:\/([^/]*))?$/);
   if (propM) {
     const id = parseInt(propM[1], 10);
-    const data = await getListings(env, ctx);
+    const data = await getListings(env, ctx, lang);
     const listing = data.items.find((l) => l.id === id);
     if (!listing) return htmlResponse(renderNotFound({ lang, env, path }), 404);
     const canonicalPath = listingPath(listing);
@@ -131,13 +156,13 @@ async function handle(request, env, ctx) {
 
 async function handleApi(request, env, ctx, path, url, lang) {
   if (path === '/api/listings') {
-    const data = await getListings(env, ctx);
-    return json({ total: data.items.length, priced: data.items.filter((l) => l.price != null).length, sourceTotal: data.total, fetchedAt: data.fetchedAt, seed: Boolean(data.seed), items: data.items }, 200, { 'cache-control': 'public, max-age=300' });
+    const data = await getListings(env, ctx, lang);
+    return json({ total: data.items.length, priced: data.items.filter((l) => l.price != null).length, sourceTotal: data.total, fetchedAt: data.fetchedAt, seed: Boolean(data.seed), items: data.items }, 200, { 'cache-control': 'no-store' });
   }
 
   if (path === '/api/debug/source') {
     const token = url.searchParams.get('token') || '';
-    if (env.REFRESH_TOKEN && token !== env.REFRESH_TOKEN) return json({ error: 'not found' }, 404);
+    if (!env.REFRESH_TOKEN || token !== env.REFRESH_TOKEN) return json({ error: 'not found' }, 404);
     try {
       return json(await debugSource(fetch, { page: parseInt(url.searchParams.get('page') || '1', 10) || 1 }));
     } catch (err) {
@@ -162,6 +187,8 @@ async function handleApi(request, env, ctx, path, url, lang) {
   if (!['/api/ask', '/api/contact'].includes(path)) return json({ error: 'unknown endpoint', path }, 404);
   if (request.method !== 'POST') return json({ error: 'method not allowed' }, 405);
 
+  sameOrigin(request);
+  if(env.DB) await rateLimit(env,request,'public-form',30,600);
   const body = await readBody(request);
   const bodyLang = body.lang === 'en' ? 'en' : lang;
 
@@ -174,17 +201,17 @@ async function handleApi(request, env, ctx, path, url, lang) {
     }
     const filters = parseFilters(params);
     if (!q && !filters.region && !filters.type && !filters.deal && filters.min == null && filters.max == null) return json({ error: 'empty question' }, 400);
-    const data = await getListings(env, ctx);
+    const data = await getListings(env, ctx, lang);
     const listingId = parseInt(body.listingId, 10);
     if (listingId) {
       if (!q) return json({ error: 'empty question' }, 400);
       const listing = data.items.find((l) => l.id === listingId);
       if (!listing) return json({ error: 'unknown listing' }, 404);
       const detail = await getDetail(env, ctx, listing);
-      const res = await askAboutListing(env, listing, detail, q, bodyLang);
+      const res = await askAboutListing({...env, AI: null}, listing, detail, q, bodyLang);
       return json(res);
     }
-    const res = await searchListings(env, data.items, q, bodyLang, filters);
+    const res = await searchListings({...env, AI: null}, data.items, q, bodyLang, filters);
     const items = res.ids.map((id) => data.items.find((l) => l.id === id)).filter(Boolean);
     return json({ ...res, count: items.length, html: items.length ? toString(cardGrid(items, bodyLang)) : '' });
   }
@@ -211,7 +238,8 @@ async function handleContact(request, env, body, lang) {
   const waText = lang === 'en'
     ? `Hello Nikola, I am ${name || '...'}${listingRef ? `, interested in property ${listingRef}` : ''}. ${sellerText}${message}`.trim()
     : `Здравейте, Никола, аз съм ${name || '...'}${listingRef ? `, интересувам се от имот ${listingRef}` : ''}. ${sellerText}${message}`.trim();
-  const whatsapp = waLink(waText);
+  const whatsappNumber = env.SITE_SETTINGS?.whatsapp || '+359884128117';
+  const whatsapp = waLink(waText).replace('wa.me/359884128117', 'wa.me/' + whatsappNumber.replace(/\D/g, ''));
 
   if (honeypot) return json({ ok: true, whatsapp }); // bots think they succeeded
   if (!name || !contact || (intent === 'sell' && (!propertyLocation || !propertyType))) return json({ ok: false, error: 'invalid', whatsapp }, 400);
@@ -225,7 +253,7 @@ async function handleContact(request, env, body, lang) {
 
   const [stored, mailed] = await Promise.all([storeLead(env, lead), sendLeadEmail(env, lead)]);
   const ok = stored || mailed;
-  if (!ok) console.warn('Lead not delivered: configure a KV binding (LISTINGS) or RESEND_API_KEY + CONTACT_TO', lead);
+  if (!ok) console.warn('Lead not delivered: configure DB or email delivery');
   return json({ ok, stored, mailed, whatsapp }, ok ? 200 : 503);
 }
 
@@ -298,7 +326,8 @@ async function serveImage(request, path, ctx) {
     upstream = `${IMAGE_BASE}/${m[1]}/${file}`;
   }
 
-  const cacheKey = new Request(new URL(path, request.url).toString(), { method: 'GET' });
+  const imageCacheUrl = new URL(path, request.url); imageCacheUrl.searchParams.set('privacy', '2');
+  const cacheKey = new Request(imageCacheUrl.toString(), { method: 'GET' });
   const cache = caches.default;
   const hit = await cache.match(cacheKey).catch(() => null);
   if (hit) return hit;
@@ -313,10 +342,12 @@ async function serveImage(request, path, ctx) {
     if (path === '/img/agent.jpg') return placeholderAvatar();
     return new Response('Image unavailable', { status: 502 });
   }
-  const out = new Response(res.body, {
+  const mime = (res.headers.get('content-type') || 'image/jpeg').split(';')[0];
+  let imageBytes; try { imageBytes = stripImageMetadata(new Uint8Array(await res.arrayBuffer()), mime); } catch { return new Response('Image unavailable', {status:502}); }
+  const out = new Response(imageBytes, {
     status: 200,
     headers: {
-      'content-type': res.headers.get('content-type') || 'image/jpeg',
+      'content-type': mime,
       'cache-control': 'public, max-age=2592000, immutable',
       'x-image-source': new URL(upstream).hostname,
     },
@@ -333,8 +364,9 @@ function placeholderAvatar() {
 /* ───────────────────────── sitemap ───────────────────────── */
 
 async function sitemap(env, ctx) {
+  const lang = 'bg';
   const site = (env.SITE_URL || `https://${SITE.domain}`).replace(/\/$/, '');
-  const data = await getListings(env, ctx);
+  const data = await getListings(env, ctx, lang);
   const urls = [];
   const add = (p, priority, lastmod) => {
     for (const lang of ['bg', 'en']) {
@@ -346,6 +378,7 @@ async function sitemap(env, ctx) {
   add('/karta', '0.6', data.fetchedAt);
   add('/otzivi', '0.5', data.fetchedAt);
   add('/predlozhete-imot', '0.5');
+  for (const region of data.regions || await regions(env)) add(`/raion/${region.key}`, '0.6');
   for (const l of data.items) add(listingPath(l), '0.7', data.fetchedAt);
   const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join('\n')}\n</urlset>`;
   return new Response(xml, { headers: { 'content-type': 'application/xml; charset=utf-8', 'cache-control': 'public, max-age=3600' } });
@@ -362,7 +395,7 @@ function htmlResponse(html, status = 200) {
     status,
     headers: {
       'content-type': 'text/html; charset=utf-8',
-      'cache-control': status === 200 ? 'public, max-age=120, s-maxage=300, stale-while-revalidate=600' : 'no-store',
+      'cache-control': 'no-store',
       'x-content-type-options': 'nosniff',
       'referrer-policy': 'strict-origin-when-cross-origin',
       'content-language': html.includes('<html lang="en">') ? 'en' : 'bg',

@@ -53,8 +53,9 @@ test('heuristic search understands price, town, type and rent in BG and EN', () 
   let r = heuristicSearch(items, 'къща до 30 000 евро близо до Севлиево');
   assert.equal(r.filters.max, 30000);
   assert.equal(r.filters.cat, 'houses');
-  assert.equal(r.filters.loc, 'Севлиево');
-  assert.ok(r.items.length > 0 && r.items.every((l) => l.price <= 30000));
+  assert.equal(r.filters.near, 'Севлиево');
+  assert.equal(r.filters.loc, '');
+  assert.ok(r.items.every((l) => l.price <= 30000 && l.distanceKm <= 20));
 
   r = heuristicSearch(items, 'warehouse for rent');
   assert.equal(r.filters.deal, 'rent');
@@ -64,7 +65,7 @@ test('heuristic search understands price, town, type and rent in BG and EN', () 
   r = heuristicSearch(items, 'plot of land under 25k near Gabrovo');
   assert.equal(r.filters.cat, 'plots');
   assert.equal(r.filters.max, 25000);
-  assert.equal(r.filters.loc, 'Габрово');
+  assert.equal(r.filters.near, 'Габрово');
 
   r = heuristicSearch(items, 'нещо евтино');
   assert.equal(r.filters.cat, 'reduced');

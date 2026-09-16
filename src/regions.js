@@ -37,6 +37,7 @@ for (const r of REGIONS) for (const t of r.towns || []) TOWN_INDEX.set(t.toLower
 
 /** Region key for a listing. */
 export function regionOf(l) {
+  if (l?.regionKey) return l.regionKey;
   const town = townOf(l?.place).toLowerCase();
   if (town && TOWN_INDEX.has(town)) return TOWN_INDEX.get(town);
   // A province alone cannot distinguish Gabrovo from Sevlievo, or Lovech from Teteven.
@@ -44,10 +45,9 @@ export function regionOf(l) {
 }
 
 /** [{ key, count, items }] in REGIONS order, empty regions removed. */
-export function groupByRegion(items) {
-  const groups = new Map(REGIONS.map((r) => [r.key, []]));
-  for (const l of items) groups.get(regionOf(l)).push(l);
-  return REGIONS.map((r) => ({ key: r.key, items: groups.get(r.key), count: groups.get(r.key).length })).filter((g) => g.count > 0);
+export function groupByRegion(items, definitions) {
+  const defs=definitions || REGIONS.map(r=>({...r,name:REGION_NAMES[r.key]}));
+  return defs.map(r=>({...r,items:items.filter(l=>regionOf(l)===r.key)})).map(r=>({...r,count:r.items.length})).filter(r=>r.count>0);
 }
 
 export function isRegionKey(key) {
