@@ -1,3 +1,5 @@
+import { publicCatalogue, importCatalogue, lead } from './manage/catalogue.js';
+import { lookupPlace, regionCoords } from './geo.js';
 /**
  * Listing storage with stale-while-revalidate.
  *
@@ -103,6 +105,7 @@ export async function refreshListings(env, { log = console.log, network = false 
     }
     await attachCoords(data.items, { cache: geoCache(env), network, log });
     await writeListings(env, data);
+    if (env.DB) await importCatalogue(env, data);
     log(`Stored ${data.items.length} listings (${data.total} total on source)`);
     return data;
   })().finally(() => {
@@ -117,7 +120,12 @@ export async function refreshListings(env, { log = console.log, network = false 
  * - cached & stale → cached now, refresh in background
  * - nothing cached → try live fetch (bounded), otherwise the bundled seed
  */
-export async function getListings(env, ctx) {
+export async function getListings(env, ctx, lang = 'bg') {
+  if (env.DB) return publicCatalogue(env, lang);
+  const data = await getLegacyListings(env, ctx);
+  return {...data, items: data.items.map(l => ({...l, coords: lookupPlace(l.place, l.region) || regionCoords(l.region)}))};
+}
+async function getLegacyListings(env, ctx) {
   const cached = await readListings(env);
   if (cached && Array.isArray(cached.items) && cached.items.length) {
     const age = Date.now() - Date.parse(cached.fetchedAt || 0);
@@ -149,6 +157,11 @@ function withTimeout(promise, ms) {
 /* ─────────── property details ─────────── */
 
 export async function getDetail(env, ctx, listing) {
+  if (env.DB) return {paragraphs: (listing.description || '').split(/\n\s*\n/).filter(Boolean), images: listing.images, features: [], coords: listing.coords};
+  const detail = await getLegacyDetail(env, ctx, listing);
+  return detail ? {...detail, coords: listing.coords} : null;
+}
+async function getLegacyDetail(env, ctx, listing) {
   const key = `detail:v2:${listing.id}`;
   const cached = (await kvGet(env, key)) || (await cacheGet(key));
   if (cached) {
@@ -189,9 +202,11 @@ async function fetchAndStoreDetail(env, listing, key) {
 
 /* ─────────── leads (contact form) ─────────── */
 
-export async function storeLead(env, lead) {
+export async function storeLead(env, data) {
+  if (env.DB) { await lead(env, data); return true; }
+  const leadData = data;
   const id = `lead:${new Date().toISOString()}:${Math.random().toString(36).slice(2, 8)}`;
-  return kvPut(env, id, lead);
+  return kvPut(env, id, leadData);
 }
 
 /* ─────────── testimonials ─────────── */

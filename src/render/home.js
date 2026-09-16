@@ -10,7 +10,7 @@ export function renderHome({ lang, data, env, testimonials = null }) {
   const t = T[lang];
   const items = data.items;
   const featured = items.slice(0, 6);
-  const groups = groupByRegion(items);
+  const groups = groupByRegion(items, data.regions);
   const hero = items.find((l) => /къщ/i.test(l.type) && l.images?.length) || items.find((l) => l.images?.length);
   const heroImg = hero?.images?.[0];
   const regions = regionChips(items).slice(0, 12);
@@ -46,7 +46,7 @@ export function renderHome({ lang, data, env, testimonials = null }) {
 
 <section id="search" class="wrap search-section">
   <div class="panel search-panel">
-    <form class="filters" method="get" action="${href(lang, '/imoti')}">
+    <details class="classic-search"><summary>${lang === 'en' ? 'Search with filters' : 'Търсене с филтри'}</summary><form class="filters" method="get" action="${href(lang, '/imoti')}">
       <div class="label-kicker">${t.searchFilters}</div>
       <div class="filters-grid">
         <label>${t.fLocation}<input name="loc" placeholder="${t.fLocationPh}" list="loc-list"></label>
@@ -56,14 +56,14 @@ export function renderHome({ lang, data, env, testimonials = null }) {
         <label>${t.fDeal}<select name="deal"><option value="">${t.fDealAny}</option><option value="sale">${t.fSale}</option><option value="rent">${t.fRent}</option></select></label>
         <div class="filters-submit"><button type="submit" class="btn btn-dark">${t.fSearch}</button></div>
       </div>
-    </form>
+    </form></details>
     <div class="ai-search">
       <div class="label-kicker"><span class="dot"></span>${t.searchAi}</div>
       <p class="lead-sm">${t.aiHint}</p>
-      <form class="ai-guided" data-ai-search data-lang="${lang}" action="${href(lang, '/imoti')}" method="get">
+      <form class="ai-guided" ${env?.DB ? 'data-agent-search' : 'data-ai-search'} data-lang="${lang}" action="${href(lang, '/imoti')}" method="get">
         <div class="ai-form"><label class="sr-only" for="ai-query">${t.aiPh}</label><input id="ai-query" name="q" placeholder="${t.aiPh}" maxlength="400"><button type="submit" class="btn btn-primary">${t.aiGo}</button></div>
         <details class="ai-criteria"><summary>${t.aiCriteria}</summary><div class="guided-grid">
-          <label>${t.regionFilter}<select name="region"><option value="">${t.anyRegion}</option>${groups.map((g) => html`<option value="${g.key}">${REGION_NAMES[g.key][lang]} (${g.count})</option>`)}</select></label>
+          <label>${t.regionFilter}<select name="region"><option value="">${t.anyRegion}</option>${groups.map((g) => html`<option value="${g.key}">${(g.name || REGION_NAMES[g.key])?.[lang] || g.key} (${g.count})</option>`)}</select></label>
           <label>${t.fBudget}<select name="budget"><option value="">${t.fBudgetAny}</option><option value="0-30000">${t.fBudget1}</option><option value="30000-60000">${t.fBudget2}</option><option value="60000-120000">${t.fBudget3}</option><option value="120000-">${t.fBudget4}</option></select></label>
           <label>${t.fType}<select name="type"><option value="">${t.fTypeAny}</option>${types.map((ty) => html`<option value="${ty}">${typeLabel(ty, lang)}</option>`)}</select></label>
           <label>${t.fDeal}<select name="deal"><option value="">${t.fDealAny}</option><option value="sale">${t.fSale}</option><option value="rent">${t.fRent}</option></select></label>
@@ -101,9 +101,9 @@ export function renderHome({ lang, data, env, testimonials = null }) {
   <div class="region-grid">${groups.map((g) => {
     const photo = g.items.find((l) => l.images?.length)?.images[0];
     const towns = regionChips(g.items).slice(0, 4).map((r) => lang === 'en' ? transliterate(r.label) : r.label);
-    return html`<a class="region-card" href="${href(lang, `/imoti?region=${g.key}`)}">
+    return html`<a class="region-card" href="${href(lang, `/raion/${g.key}`)}">
       ${photo ? html`<img src="${imgUrl(photo, 'medium')}" alt="" loading="lazy" width="600" height="400">` : ''}
-      <div class="region-card-copy"><span class="region-count">${t.results(g.count)}</span><h3>${REGION_NAMES[g.key][lang]}</h3><p>${towns.join(' · ')}</p><span class="region-action">${t.regionBrowse} →</span></div>
+      <div class="region-card-copy"><span class="region-count">${t.results(g.count)}</span><h3>${(g.name || REGION_NAMES[g.key])?.[lang] || g.key}</h3><p>${towns.join(' · ')}</p><span class="region-action">${t.regionBrowse} →</span></div>
     </a>`;
   })}</div>
 </section>

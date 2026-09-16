@@ -13,7 +13,7 @@ export function renderProperty({ lang, data, listing: l, detail, env }) {
   const similar = similarTo(data.items, l, 3);
   const paragraphs = detail?.paragraphs?.length ? detail.paragraphs : [];
   const town = townOf(l.place);
-  const exact = detail?.coords && !detail.coords.approx ? detail.coords : null;
+  const exact = null;
   const coords = exact || (l.coords && Number.isFinite(l.coords.lat) ? l.coords : null);
   const mapUrl = exact
     ? `https://www.openstreetmap.org/?mlat=${exact.lat}&mlon=${exact.lng}#map=15/${exact.lat}/${exact.lng}`
@@ -80,7 +80,7 @@ export function renderProperty({ lang, data, listing: l, detail, env }) {
       <h2>${t.descTitle}</h2>
       <div class="prose">
         ${paragraphs.length ? paragraphs.map((p) => html`<p>${p}</p>`) : html`<p class="muted">${t.descMissing}</p>`}
-        <p><a class="link-more" href="${l.url}" target="_blank" rel="noopener nofollow">${t.descSource}</a></p>
+        ${l.url ? html`<p class="muted small">${lang === 'en' ? 'Source: SUPRIMMO' : 'Източник: SUPRIMMO'}</p>` : ''}
       </div>
     </div>
 
@@ -101,14 +101,14 @@ export function renderProperty({ lang, data, listing: l, detail, env }) {
 
     <section class="buyer-facts">
       <h2>${t.buyerFactsTitle}</h2>
-      <dl class="buyer-facts-grid">${buyerFacts(l.id, lang).map((f, i) => html`<div><dt>${t.aiChips[i]}</dt><dd>${f.text || t.factUnknown}${f.text ? html`<small>${t.factSource}: ${f.source} · ${t.factReviewed}: ${f.reviewedAt}</small>` : ''}</dd></div>`)}</dl>
+      <dl class="buyer-facts-grid">${(l.managed ? ['access','yearRound','amenities','nearestTown'].map(k=>l.facts?.[k]||{}) : buyerFacts(l.id, lang)).map((f, i) => html`<div><dt>${t.aiChips[i]}</dt><dd>${f.text || t.factUnknown}${f.text ? html`<small>${t.factSource}: ${f.source} · ${t.factReviewed}: ${f.reviewedAt}</small>` : ''}</dd></div>`)}</dl>
     </section>
 
     <div class="ai-box">
       <div class="label-kicker"><span class="dot"></span>${t.aiKicker}</div>
       <h2>${t.aiTitle}</h2>
       <p class="muted">${t.aiSub}</p>
-      <form class="ai-form" data-ai-ask data-lang="${lang}" data-listing="${l.id}">
+      <form class="ai-form" ${env?.DB ? 'data-agent-ask' : 'data-ai-ask'} data-lang="${lang}" data-listing="${l.id}">
         <label class="sr-only" for="property-question">${t.aiTitle}</label><input id="property-question" name="q" placeholder="${t.aiPhProp}" maxlength="400" required>
         <button type="submit" class="btn btn-primary">${t.aiAsk}</button>
       </form>

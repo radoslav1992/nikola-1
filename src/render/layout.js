@@ -80,9 +80,14 @@ ${body}
 ${footer(lang, updatedAt)}
 ${mobileBar(lang)}
 <script src="/app.js" defer></script>
+${env?.DB ? raw('<script src="/assistant.js" defer></script>') : ''}
 </body>
 </html>`;
-  return toString(doc);
+  let rendered=toString(doc);
+  const phone=env?.SITE_SETTINGS?.phone, whatsapp=env?.SITE_SETTINGS?.whatsapp;
+  if(phone&&/^\+\d{8,15}$/.test(phone)) rendered=rendered.replaceAll('tel:+359884128117','tel:'+phone).replaceAll('+359 884 128 117',phone);
+  if(whatsapp&&/^\+\d{8,15}$/.test(whatsapp)) rendered=rendered.replaceAll('wa.me/359884128117','wa.me/'+whatsapp.slice(1)).replaceAll('number=%2B359884128117','number=%2B'+whatsapp.slice(1));
+  return rendered;
 }
 
 function header(lang, path) {

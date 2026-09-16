@@ -9,6 +9,7 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "ni-imoti",
   "main": "src/index.js",
+  "build": { "command": "npm run build:client" },
   "compatibility_date": "2025-10-01",
   "workers_dev": true,
   "preview_urls": true,
@@ -25,9 +26,7 @@
     "crons": ["17 */6 * * *"]
   },
 
-  // Workers AI powers the "Търсене с изкуствен интелект" box and "Попитайте за този имот".
-  // No setup needed — every Cloudflare account has a free Workers AI allocation.
-  // If you prefer not to use it, delete this block: the site falls back to keyword search.
+  // Workers AI is used for reviewed translations. Visitor conversations use ElevenLabs.
   "ai": {
     "binding": "AI"
   },
@@ -42,6 +41,10 @@
   "observability": {
     "enabled": true
   },
+
+  // Required for the managed catalogue and admin. Create resources first; see docs/DEPLOYMENT.md.
+  // "d1_databases": [{ "binding": "DB", "database_name": "ni-imoti", "database_id": "YOUR_D1_ID", "migrations_dir": "migrations" }],
+  // "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "ni-imoti-media" }],
 
   /* ── OPTIONAL BUT RECOMMENDED: persistent listings cache ────────────────────────────
    * 1. Cloudflare dashboard → Storage & Databases → KV → Create namespace, name: ni-imoti

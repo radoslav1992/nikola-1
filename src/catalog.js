@@ -1,3 +1,4 @@
+import { nearby, proximityQuery } from './spatial.js';
 /**
  * Filtering, sorting and grouping of listings (pure functions, shared by pages, the API and AI fallback).
  */
@@ -49,7 +50,9 @@ export function parseFilters(searchParams) {
   return {
     q: g('q').slice(0, 200),
     loc: g('loc').slice(0, 120),
-    region: isRegionKey(g('region')) ? g('region') : '',
+    near: g('near').slice(0,120),
+    radius: Math.min(100,Math.max(1,Number(g('radius'))||20)),
+    region: /^[a-z][a-z0-9-]{1,39}$/.test(g('region')) ? g('region') : '',
     type: g('type').slice(0, 80),
     cat: g('cat').slice(0, 40),
     deal: ['sale', 'rent'].includes(g('deal')) ? g('deal') : '',
@@ -73,7 +76,7 @@ export function applyFilters(items, f) {
     const cat = CATEGORIES.find((c) => c.key === f.cat);
     if (cat) out = out.filter(cat.test);
   }
-  if (f.region && isRegionKey(f.region)) out = out.filter((l) => regionOf(l) === f.region);
+  if (f.region) out = out.filter((l) => regionOf(l) === f.region);
   if (f.type) out = out.filter((l) => l.type === f.type);
   if (f.deal === 'rent') out = out.filter((l) => l.rent);
   if (f.deal === 'sale') out = out.filter((l) => !l.rent);
@@ -86,10 +89,11 @@ export function applyFilters(items, f) {
   if (f.q) {
     const words = norm(f.q).split(' ').filter((w) => w.length > 1);
     out = out.filter((l) => {
-      const hay = norm(`${l.title} ${l.type} ${l.place} ${l.region} ${l.ref}`);
+      const hay = norm(`${l.title} ${l.type} ${l.place} ${l.region} ${l.ref} ${l.description || ''} ${Object.values(l.facts || {}).map(f=>f.text).join(' ')}`);
       return words.every((w) => hay.includes(w));
     });
   }
+  if(f.near) return sortItems(nearby(out,f.near,f.radius||20),f.sort);
   return sortItems(out, f.sort);
 }
 
@@ -166,6 +170,8 @@ export function heuristicSearch(items, query) {
     }
   }
 
+  const closeTo=proximityQuery(query);
+  if(closeTo){f.near=closeTo;f.radius=20;f.loc='';}
   const res = applyFilters(items, f);
   return { items: res.slice(0, 6), filters: f };
 }

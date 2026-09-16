@@ -3,7 +3,7 @@ import { T, AGENT, typeLabel, placeLabel, regionLabel, fmtPrice, fmtArea, fmtNum
 import { href, waLink, viberLink, telHref } from './layout.js';
 
 export function imgUrl(file, size = 'medium') {
-  return `/img/${size}/${encodeURIComponent(file)}`;
+  return /^\/media\/[a-zA-Z0-9._-]+$/.test(file) ? file : `/img/${size}/${encodeURIComponent(file)}`;
 }
 
 export function listingPath(l) {

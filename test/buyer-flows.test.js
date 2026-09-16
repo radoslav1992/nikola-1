@@ -23,7 +23,8 @@ test('regional grouping preserves catalogue and respects known towns over provin
   const f = parseFilters(new URLSearchParams('region=sevlievo&budget=0-30000'));
   const found = applyFilters(items, f);
   assert.ok(found.length && found.every((l) => regionOf(l) === 'sevlievo' && l.price <= 30000));
-  assert.equal(parseFilters(new URLSearchParams('region=invalid')).region, '');
+  assert.equal(parseFilters(new URLSearchParams('region=custom-area')).region, 'custom-area');
+  assert.equal(parseFilters(new URLSearchParams('region=../invalid')).region, '');
 });
 
 test('AI and fallback cannot escape structured budget, region or deal', async () => {
