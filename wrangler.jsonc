@@ -42,9 +42,19 @@
     "enabled": true
   },
 
-  // Required for the managed catalogue and admin. Create resources first; see docs/DEPLOYMENT.md.
-  // "d1_databases": [{ "binding": "DB", "database_name": "ni-imoti", "database_id": "YOUR_D1_ID", "migrations_dir": "migrations" }],
-  // "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "ni-imoti-media" }],
+  // Managed catalogue and admin database. Apply migrations before deployment.
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "ni-imoti",
+      "database_id": "04a39b0e-78e7-4a7f-866f-ee440ff7d6fb",
+      "migrations_dir": "migrations"
+    }
+  ],
+  // Private property photos are served through the Worker with publication checks.
+  "r2_buckets": [
+    { "binding": "MEDIA", "bucket_name": "ni-imoti-media" }
+  ],
 
   /* ── OPTIONAL BUT RECOMMENDED: persistent listings cache ────────────────────────────
    * 1. Cloudflare dashboard → Storage & Databases → KV → Create namespace, name: ni-imoti
