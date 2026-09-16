@@ -1,3 +1,4 @@
+import { groupByRegion, REGION_NAMES } from '../regions.js';
 import { html } from './html.js';
 import { T, CATEGORIES, typeLabel, transliterate } from './i18n.js';
 import { page, href } from './layout.js';
@@ -13,13 +14,14 @@ export function renderListings({ lang, data, filters, env, path = '/imoti', quer
   const regions = regionChips(all);
 
   const activeCat = CATEGORIES.find((c) => c.key === filters.cat);
-  const title = activeCat ? t[activeCat.label] : filters.type ? typeLabel(filters.type, lang) : filters.loc ? `${t.listTitle}: ${lang === 'en' ? transliterate(filters.loc) : filters.loc}` : t.listTitle;
+  const title = filters.region ? REGION_NAMES[filters.region][lang] : activeCat ? t[activeCat.label] : filters.type ? typeLabel(filters.type, lang) : filters.loc ? `${t.listTitle}: ${lang === 'en' ? transliterate(filters.loc) : filters.loc}` : t.listTitle;
 
   const qs = (overrides = {}) => {
     const p = new URLSearchParams();
     const f = { ...filters, ...overrides };
     if (f.q) p.set('q', f.q);
     if (f.loc) p.set('loc', f.loc);
+    if (f.region) p.set('region', f.region);
     if (f.type) p.set('type', f.type);
     if (f.cat) p.set('cat', f.cat);
     if (f.deal) p.set('deal', f.deal);
@@ -33,7 +35,7 @@ export function renderListings({ lang, data, filters, env, path = '/imoti', quer
 
   const sortOpts = [['top', t.sortTop], ['price_asc', t.sortPriceAsc], ['price_desc', t.sortPriceDesc], ['area_asc', t.sortAreaAsc], ['area_desc', t.sortAreaDesc]];
   const budgets = [['', t.fBudgetAny], ['0-30000', t.fBudget1], ['30000-60000', t.fBudget2], ['60000-120000', t.fBudget3], ['120000-', t.fBudget4]];
-  const hasFilters = filters.q || filters.loc || filters.type || filters.cat || filters.deal || filters.min != null || filters.max != null;
+  const hasFilters = filters.region || filters.q || filters.loc || filters.type || filters.cat || filters.deal || filters.min != null || filters.max != null;
 
   const body = html`
 <section class="wrap page-head">
@@ -45,6 +47,7 @@ export function renderListings({ lang, data, filters, env, path = '/imoti', quer
 <section class="wrap">
   <form class="panel filters filters-bar" method="get" action="${href(lang, path)}">
     <div class="filters-grid filters-grid-wide">
+      <label>${t.regionFilter}<select name="region"><option value="">${t.anyRegion}</option>${groupByRegion(all).map((g) => html`<option value="${g.key}" ${g.key === filters.region ? 'selected' : ''}>${REGION_NAMES[g.key][lang]}</option>`)}</select></label>
       <label>${t.fLocation}<input name="loc" value="${filters.loc}" placeholder="${t.fLocationPh}" list="loc-list"></label>
       <datalist id="loc-list">${regions.map((r) => html`<option value="${r.key}">${lang === 'en' ? transliterate(r.label) : r.label}</option>`)}</datalist>
       <label>${t.fType}<select name="type"><option value="">${t.fTypeAny}</option>${types.map((ty) => html`<option value="${ty}" ${ty === filters.type ? 'selected' : ''}>${typeLabel(ty, lang)}</option>`)}</select></label>
@@ -58,7 +61,7 @@ export function renderListings({ lang, data, filters, env, path = '/imoti', quer
   </form>
   <div class="chips chips-cats">
     <a class="pill ${!filters.cat ? 'on' : ''}" href="${qs({ cat: '', page: 1 })}">${t.fTypeAny}</a>
-    ${CATEGORIES.map((c) => {
+    ${CATEGORIES.filter((c) => !c.hidden).map((c) => {
       const n = all.filter(c.test).length;
       return n ? html`<a class="pill ${filters.cat === c.key ? 'on' : ''}" href="${qs({ cat: c.key, type: '', page: 1 })}">${t[c.label]} <sup>${n}</sup></a>` : '';
     })}
@@ -79,7 +82,7 @@ export function renderListings({ lang, data, filters, env, path = '/imoti', quer
 
   return page({
     lang,
-    path: path + (filters.page > 1 ? `?page=${filters.page}` : ''),
+    path: qs().replace(/^\/en(?=\/)/, ''),
     title,
     description: `${t.listSub} ${t.results(all.length)}.`,
     body,

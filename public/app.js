@@ -88,27 +88,36 @@
   $all('[data-ai-search]').forEach(function (form) {
     var out = form.parentNode.querySelector('.ai-result');
     var allHref = (lang === 'en' ? '/en' : '') + '/imoti';
+    $all('[data-search-example]', form.parentNode).forEach(function (chip) {
+      chip.addEventListener('click', function () { form.q.value = chip.textContent.trim(); form.q.focus(); });
+    });
     form.addEventListener('submit', function (e) {
       e.preventDefault();
       var q = form.q.value.trim();
-      if (!q) return;
-      var btn = form.querySelector('button');
+      var filters = {};
+      ['region', 'budget', 'type', 'deal'].forEach(function (key) { filters[key] = form.elements.namedItem(key).value; });
+      if (!q && !Object.values(filters).some(Boolean)) { form.q.focus(); return; }
+      var btn = form.querySelector('button[type=submit]');
+      if (btn.disabled) return;
       btn.disabled = true;
       out.hidden = false;
+      out.setAttribute('aria-busy', 'true');
       out.innerHTML = '<div class="ai-answer">' + esc(T.thinking) + '</div>';
-      postJSON('/api/ask', { q: q, lang: lang }).then(function (res) {
+      postJSON('/api/ask', { q: q, lang: lang, filters: filters }).then(function (res) {
         var parts = [];
         if (res.error) throw new Error(res.error);
         if (res.answer) parts.push('<div class="ai-answer">' + esc(res.answer) + '</div>');
         else if (res.source === 'keyword' && res.count) parts.push('<div class="ai-answer">' + esc(T.keyword) + '</div>');
         if (res.count) parts.push(res.html);
         else parts.push('<div class="ai-answer">' + esc(T.none) + '</div>');
-        parts.push('<p style="margin-top:14px"><a class="link-more" href="' + allHref + '?q=' + encodeURIComponent(q) + '">' + esc(T.all) + '</a></p>');
+        var params = new URLSearchParams();
+        Object.keys(filters).forEach(function (key) { if (filters[key]) params.set(key, filters[key]); });
+        parts.push('<p style="margin-top:14px"><a class="link-more" href="' + allHref + '?' + esc(params.toString()) + '">' + esc(T.all) + '</a></p>');
         out.innerHTML = parts.join('');
         initCarousels(out);
       }).catch(function () {
         out.innerHTML = '<div class="ai-answer error">' + esc(T.error) + '</div>';
-      }).then(function () { btn.disabled = false; });
+      }).then(function () { btn.disabled = false; out.setAttribute('aria-busy', 'false'); });
     });
   });
 
@@ -118,15 +127,17 @@
     var listingId = form.getAttribute('data-listing');
     function ask(q) {
       var btn = form.querySelector('button');
+      if (btn.disabled) return;
       btn.disabled = true;
       out.hidden = false;
+      out.setAttribute('aria-busy', 'true');
       out.innerHTML = '<div class="ai-answer">' + esc(T.asking) + '</div>';
       postJSON('/api/ask', { q: q, lang: lang, listingId: listingId }).then(function (res) {
         if (res.error) throw new Error(res.error);
         out.innerHTML = '<div class="ai-answer">' + esc(res.answer || T.error) + '</div>';
       }).catch(function () {
         out.innerHTML = '<div class="ai-answer error">' + esc(T.error) + '</div>';
-      }).then(function () { btn.disabled = false; });
+      }).then(function () { btn.disabled = false; out.setAttribute('aria-busy', 'false'); });
     }
     form.addEventListener('submit', function (e) { e.preventDefault(); var q = form.q.value.trim(); if (q) ask(q); });
     $all('[data-ai-chip]', form.parentNode).forEach(function (chip) {
@@ -143,6 +154,7 @@
       $all('input, textarea', form).forEach(function (el) { if (el.name) data[el.name] = el.value; });
       if (!data.name || !data.contact) { status.className = 'form-status err'; status.textContent = T.invalid; return; }
       var btn = form.querySelector('button[type=submit]');
+      if (btn.disabled) return;
       btn.disabled = true;
       status.className = 'form-status';
       status.textContent = T.sending;

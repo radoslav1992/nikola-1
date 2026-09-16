@@ -112,8 +112,8 @@ npm run deploy        # ръчен deploy с wrangler (не е нужен при
 ## 4. Бележки
 
 - Дизайн: „clean & bright“ — бял фон, един акцент (`#167A5A`), шрифт Plus Jakarta Sans, големи снимки, закръглени карти.
-  Структурата на страниците следва handoff-а от Claude Design (Bulgarian Real Estate Gateway); секцията „Продадени“ от макета
-  е заменена с „Имоти с намалена цена“, защото източникът не публикува продадени имоти. Целият стил е в `public/styles.css`.
+  Структурата на страниците следва handoff-а от Claude Design (Bulgarian Real Estate Gateway).
+  „Намалени“ не се показва като основна категория; има обща секция „Избрани имоти“. Целият стил е в `public/styles.css`.
 - Имейлът на Никола не е публикуван в suprimmo.bg (скрит зад captcha), затова сайтът ползва телефон, WhatsApp, Viber и формата.
 - Данните на обявите са собственост на SUPRIMMO / PROPERTY.BG; всяка страница на имот води към оригиналната обява.
 
@@ -126,3 +126,51 @@ cached in KV / edge cache with a bundled seed fallback, and rendered in Bulgaria
 dashboard: *Workers & Pages → Create → Workers → Import a repository*, no build command, deploy command `npx wrangler deploy`.
 Add the custom domain under *Settings → Domains & Routes*. Optional: KV namespace (uncomment in `wrangler.jsonc`),
 Resend email secrets, `REFRESH_TOKEN`. Workers AI powers the natural-language search with a keyword fallback.
+
+## Buyer discovery and seller enquiries (September 2026)
+
+Variant 1 remains the visual base. Regional groups from variant 2 now link to actual
+`/imoti?region=…` filters and survive sorting, pagination and the list/map switch.
+Unknown villages are not inferred to belong to a narrower area from their province alone.
+The homepage includes optional area, budget, property type and deal selectors for AI search.
+`POST /api/ask` accepts `{q, lang, filters: {region, budget, type, deal}}`; `q` can be empty
+when a structured criterion is selected. Structured criteria and recognised free-text
+constraints narrow the catalogue before AI ranking. Neither AI nor keyword fallback silently
+relaxes those constraints. Without AI, only the recognised criteria are applied; subjective
+requirements such as privacy or year-round suitability still need confirmation.
+
+The reduced-price navigation, homepage section and category chips are removed. Existing
+`cat=reduced` URLs and factual price reductions on individual listings continue to work.
+
+`/predlozhete-imot` and `/en/predlozhete-imot` provide a discreet seller entry via the homepage
+contact area and footer. Seller enquiries include `intent: "sell"`, `propertyLocation` and
+`propertyType` in the existing KV/email delivery flow and WhatsApp fallback. No new secrets
+or bindings are needed. As before, receiving enquiries requires the existing LISTINGS KV
+binding or Resend configuration. If neither is configured, the site explicitly offers
+WhatsApp instead of claiming that the enquiry was received.
+
+### Property knowledge
+
+`data/property-notes.js` is the first broker-owned content layer, keyed by the existing listing
+ID. It is intentionally empty until Nikola supplies verified information. Supported keys:
+`access`, `yearRound`, `amenities`, `nearestTown`. Each fact requires:
+
+- `text`: Bulgarian text, or `{bg: "…", en: "…"}`; missing English falls back to Bulgarian.
+- `source`: a public description of the source, such as a broker visit.
+- `reviewedAt`: the date of verification, `YYYY-MM-DD`, not a future date.
+
+The property page and both AI flows consume the same validated facts. Unknown or incomplete
+facts remain explicitly unknown; AI is instructed to use supplied evidence and never infer
+access, amenities or distances from the map. The four suggested buyer questions cover access,
+year-round living, local amenities and distance to the nearest town. Visitors can still type
+any question. No preset tax/fee question or hardcoded estimate is provided.
+
+This file is public content: never include owner contacts, private addresses or internal notes.
+Scraping continues to supply the current catalogue and cannot overwrite this separate content.
+Editing this file currently requires a code change and deployment. A content administration
+interface, independent listing lifecycle, richer regional guides, and reviewed original
+property descriptions are a next phase; they are not implemented by this first version.
+
+Validation: `npm test` covers regional grouping, strict AI constraints/fallback, reviewed
+content validation, and both language renderers. `npx wrangler deploy --dry-run` checks the
+Worker bundle without deploying.

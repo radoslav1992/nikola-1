@@ -18,6 +18,7 @@
 import { getListings, getDetail, refreshListings, storeLead, readListings, getTestimonials, refreshTestimonials } from './store.js';
 import { parseFilters } from './catalog.js';
 import { searchListings, askAboutListing } from './ai.js';
+import { renderSeller } from './render/seller.js';
 import { renderHome } from './render/home.js';
 import { renderListings } from './render/listings.js';
 import { renderMap } from './render/map.js';
@@ -81,6 +82,8 @@ async function handle(request, env, ctx) {
   if (path.startsWith('/api/')) return handleApi(request, env, ctx, path, url, lang);
 
   if (path === '/sitemap.xml') return sitemap(env, ctx);
+
+  if (path === '/predlozhete-imot') return htmlResponse(renderSeller({ lang, env }));
 
   if (path === '/') {
     const [data, testimonials] = await Promise.all([getListings(env, ctx), getTestimonials(env, ctx)]);
@@ -164,17 +167,24 @@ async function handleApi(request, env, ctx, path, url, lang) {
 
   if (path === '/api/ask') {
     const q = String(body.q || '').trim().slice(0, 400);
-    if (!q) return json({ error: 'empty question' }, 400);
+    const rawFilters = body.filters && typeof body.filters === 'object' ? body.filters : {};
+    const params = new URLSearchParams();
+    for (const key of ['region', 'budget', 'type', 'deal']) {
+      if (typeof rawFilters[key] === 'string') params.set(key, rawFilters[key].slice(0, 120));
+    }
+    const filters = parseFilters(params);
+    if (!q && !filters.region && !filters.type && !filters.deal && filters.min == null && filters.max == null) return json({ error: 'empty question' }, 400);
     const data = await getListings(env, ctx);
     const listingId = parseInt(body.listingId, 10);
     if (listingId) {
+      if (!q) return json({ error: 'empty question' }, 400);
       const listing = data.items.find((l) => l.id === listingId);
       if (!listing) return json({ error: 'unknown listing' }, 404);
       const detail = await getDetail(env, ctx, listing);
       const res = await askAboutListing(env, listing, detail, q, bodyLang);
       return json(res);
     }
-    const res = await searchListings(env, data.items, q, bodyLang);
+    const res = await searchListings(env, data.items, q, bodyLang, filters);
     const items = res.ids.map((id) => data.items.find((l) => l.id === id)).filter(Boolean);
     return json({ ...res, count: items.length, html: items.length ? toString(cardGrid(items, bodyLang)) : '' });
   }
@@ -193,16 +203,21 @@ async function handleContact(request, env, body, lang) {
   const listingTitle = String(body.listingTitle || '').trim().slice(0, 200);
   const listingId = parseInt(body.listingId, 10) || null;
 
+  const intent = body.intent === 'sell' ? 'sell' : 'buy';
+  const propertyLocation = String(body.propertyLocation || '').trim().slice(0, 200);
+  const propertyType = String(body.propertyType || '').trim().slice(0, 120);
+  const sellerText = intent === 'sell' ? (lang === 'en' ? `Property for sale: ${propertyType}, ${propertyLocation}. Contact: ${contact}. ` : `Имот за продажба: ${propertyType}, ${propertyLocation}. Контакт: ${contact}. `) : '';
+
   const waText = lang === 'en'
-    ? `Hello Nikola, I am ${name || '...'}${listingRef ? `, interested in property ${listingRef}` : ''}. ${message}`.trim()
-    : `Здравейте, Никола, аз съм ${name || '...'}${listingRef ? `, интересувам се от имот ${listingRef}` : ''}. ${message}`.trim();
+    ? `Hello Nikola, I am ${name || '...'}${listingRef ? `, interested in property ${listingRef}` : ''}. ${sellerText}${message}`.trim()
+    : `Здравейте, Никола, аз съм ${name || '...'}${listingRef ? `, интересувам се от имот ${listingRef}` : ''}. ${sellerText}${message}`.trim();
   const whatsapp = waLink(waText);
 
   if (honeypot) return json({ ok: true, whatsapp }); // bots think they succeeded
-  if (!name || !contact) return json({ ok: false, error: 'invalid', whatsapp }, 400);
+  if (!name || !contact || (intent === 'sell' && (!propertyLocation || !propertyType))) return json({ ok: false, error: 'invalid', whatsapp }, 400);
 
   const lead = {
-    name, contact, message, listingId, listingRef, listingTitle, lang,
+    name, contact, message, listingId, listingRef, listingTitle, lang, intent, propertyLocation, propertyType,
     receivedAt: new Date().toISOString(),
     country: request.cf?.country || null,
     page: request.headers.get('referer') || null,
@@ -216,10 +231,11 @@ async function handleContact(request, env, body, lang) {
 
 async function sendLeadEmail(env, lead) {
   if (!env.RESEND_API_KEY || !env.CONTACT_TO) return false;
-  const subject = `${SITE.name}: запитване от ${lead.name}${lead.listingRef ? ` за ${lead.listingRef}` : ''}`;
+  const subject = `${SITE.name}: ${lead.intent === 'sell' ? 'предложение за продажба' : 'запитване'} от ${lead.name}${lead.listingRef ? ` за ${lead.listingRef}` : ''}`;
   const text = [
     `Име: ${lead.name}`,
     `Контакт: ${lead.contact}`,
+    lead.intent === 'sell' ? `Имот за продажба: ${lead.propertyType} — ${lead.propertyLocation}` : null,
     lead.listingRef ? `Имот: ${lead.listingRef} — ${lead.listingTitle}` : null,
     lead.listingId ? `Линк: ${(env.SITE_URL || `https://${SITE.domain}`).replace(/\/$/, '')}/imot/${lead.listingId}` : null,
     '',
@@ -329,6 +345,7 @@ async function sitemap(env, ctx) {
   add('/imoti', '0.9', data.fetchedAt);
   add('/karta', '0.6', data.fetchedAt);
   add('/otzivi', '0.5', data.fetchedAt);
+  add('/predlozhete-imot', '0.5');
   for (const l of data.items) add(listingPath(l), '0.7', data.fetchedAt);
   const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join('\n')}\n</urlset>`;
   return new Response(xml, { headers: { 'content-type': 'application/xml; charset=utf-8', 'cache-control': 'public, max-age=3600' } });
