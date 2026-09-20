@@ -33,6 +33,26 @@ npx wrangler d1 migrations apply ni-imoti --remote
 
 За локална разработка използвайте `--local`. За staging дайте отделни имена и IDs в отделен Wrangler конфигурационен файл; не тествайте импорти върху production D1. KV binding `LISTINGS` е полезен за кеша на източника/отзивите, но не замества D1.
 
+### Повторен опит след `incomplete input`
+
+Ако първата миграция е прекъснала при създаването на тригерите, обновете локалния код и я изпълнете отново:
+
+```bash
+git pull --ff-only
+npx wrangler d1 migrations apply DB --remote
+```
+
+Тригерите използват `SELECT RAISE(...) WHERE ...`, без вложен `CASE … END`, за съвместимост с обработката на SQL през отдалечения D1 API. Миграцията използва `IF NOT EXISTS`: таблици и данни, създадени при предишен опит през Console, се запазват. Не изтривайте базата и не отбелязвайте ръчно миграцията като изпълнена.
+
+След успех проверете в D1 Console:
+
+```sql
+SELECT name FROM sqlite_master WHERE type='trigger' ORDER BY name;
+SELECT name FROM d1_migrations ORDER BY id;
+```
+
+Очакват се три тригера (`prevent_slot_overlap`, `reopen_slot`, `reserve_slot`) и запис `0001_managed_catalog.sql` в историята на миграциите.
+
 ## 2. Достъп до админ панела
 
 `ADMIN_PASSWORD_HASH` е PBKDF2 хеш, генериран от включения скрипт. Пример за Bash, без паролата да влиза в историята на командите:

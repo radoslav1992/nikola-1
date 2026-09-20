@@ -23,8 +23,9 @@ CREATE TABLE IF NOT EXISTS notes (id TEXT PRIMARY KEY, entity_type TEXT NOT NULL
 CREATE INDEX IF NOT EXISTS notes_entity ON notes(entity_type,entity_id);
 CREATE TABLE IF NOT EXISTS slots (id TEXT PRIMARY KEY, starts_at TEXT NOT NULL, ends_at TEXT NOT NULL, state TEXT NOT NULL DEFAULT 'open' CHECK(state IN ('open','booked','blocked')), UNIQUE(starts_at));
 CREATE TABLE IF NOT EXISTS appointments (id TEXT PRIMARY KEY, slot_id TEXT NOT NULL REFERENCES slots(id), property_id INTEGER REFERENCES properties(id), name TEXT NOT NULL, contact TEXT NOT NULL, message TEXT NOT NULL DEFAULT '', conversation_id TEXT, status TEXT NOT NULL DEFAULT 'confirmed', created_at TEXT NOT NULL);
+-- Keep trigger guards free of nested CASE/END for the remote D1 query parser.
 CREATE TRIGGER IF NOT EXISTS reserve_slot BEFORE INSERT ON appointments BEGIN
- SELECT CASE WHEN NOT EXISTS (SELECT 1 FROM slots WHERE id=NEW.slot_id AND state='open' AND starts_at > strftime('%Y-%m-%dT%H:%M:%fZ','now')) THEN RAISE(ABORT,'slot_unavailable') END;
+ SELECT RAISE(ABORT,'slot_unavailable') WHERE NOT EXISTS (SELECT 1 FROM slots WHERE id=NEW.slot_id AND state='open' AND starts_at > strftime('%Y-%m-%dT%H:%M:%fZ','now'));
  UPDATE slots SET state='booked' WHERE id=NEW.slot_id;
 END;
 CREATE TABLE IF NOT EXISTS conversations (id TEXT PRIMARY KEY, agent_id TEXT NOT NULL, channel TEXT NOT NULL, status TEXT NOT NULL, summary TEXT NOT NULL DEFAULT '', transcript_json TEXT NOT NULL DEFAULT '[]', metadata_json TEXT NOT NULL DEFAULT '{}', occurred_at TEXT NOT NULL, received_at TEXT NOT NULL);
@@ -39,6 +40,6 @@ CREATE TRIGGER IF NOT EXISTS reopen_slot AFTER UPDATE OF status ON appointments 
  UPDATE slots SET state='open' WHERE id=NEW.slot_id;
 END;
 CREATE TRIGGER IF NOT EXISTS prevent_slot_overlap BEFORE INSERT ON slots BEGIN
- SELECT CASE WHEN EXISTS (SELECT 1 FROM slots WHERE starts_at < NEW.ends_at AND ends_at > NEW.starts_at) THEN RAISE(ABORT,'slot_overlap') END;
+ SELECT RAISE(ABORT,'slot_overlap') WHERE EXISTS (SELECT 1 FROM slots WHERE starts_at < NEW.ends_at AND ends_at > NEW.starts_at);
 END;
 CREATE TABLE IF NOT EXISTS media (key TEXT PRIMARY KEY, property_id INTEGER NOT NULL REFERENCES properties(id), mime TEXT NOT NULL, created_at TEXT NOT NULL);
