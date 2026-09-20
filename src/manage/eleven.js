@@ -270,8 +270,56 @@ For property {{property_id}}, get_property before answers. Four suggested topics
     },
   };
 }
+// Attach an agent managed in ElevenLabs without replacing its prompt, tools,
+// voice, webhook, privacy policy or telephone assignment.
+export async function connectExistingAgent(env, value) {
+  const agentId = String(value || "").trim();
+  if (!/^[a-zA-Z0-9_-]{10,100}$/.test(agentId))
+    throw new HttpError(400, "Въведете валиден ElevenLabs Agent ID.");
+  if (!env.AGENT_TOOL_SECRET)
+    throw new HttpError(503, "Добавете AGENT_TOOL_SECRET в Cloudflare.");
+  const agent = await eleven(env, `/convai/agents/${agentId}`);
+  if (agent.agent_id !== agentId)
+    throw new HttpError(502, "ElevenLabs не потвърди избрания агент.");
+  const overrides = agent.platform_settings?.overrides || {};
+  const config = overrides.conversation_config_override || {};
+  await eleven(env, `/convai/agents/${agentId}`, {
+    method: "PATCH",
+    body: {
+      platform_settings: {
+        overrides: {
+          ...overrides,
+          conversation_config_override: {
+            ...config,
+            agent: { ...config.agent, language: true, first_message: true },
+            conversation: { ...config.conversation, text_only: true },
+          },
+        },
+      },
+    },
+  });
+  const signed = await eleven(
+    env,
+    `/convai/conversation/get-signed-url?agent_id=${encodeURIComponent(agentId)}`,
+  );
+  if (!signed.signed_url?.startsWith("wss://"))
+    throw new HttpError(502, "ElevenLabs не върна връзка за разговор.");
+  const s = await settings(env);
+  await setSettings(env, {
+    ...s,
+    agentId,
+    agentManagement: "external",
+    agentEnabled: true,
+    configured: true,
+    recordAudio: Boolean(agent.platform_settings?.privacy?.record_voice),
+  });
+  await audit(env, "agent.connect", agentId);
+  return { ok: true, agentId };
+}
 export async function configureAgent(env) {
   const s = await settings(env);
+  if (s.agentManagement === "external")
+    return connectExistingAgent(env, s.agentId);
   if (!env.AGENT_TOOL_SECRET || !env.SITE_URL?.startsWith("https://"))
     throw new HttpError(
       503,
@@ -358,7 +406,11 @@ export async function assistantApi(request, env, path) {
   if (path === "/api/assistant/config")
     return json({
       enabled: Boolean(
-        env.DB && env.ELEVENLABS_API_KEY && s.agentEnabled && s.configured,
+        env.DB &&
+        env.ELEVENLABS_API_KEY &&
+        s.agentId &&
+        s.agentEnabled &&
+        s.configured,
       ),
       notice: notice(s, lang),
       position: s.widgetPosition || "right",

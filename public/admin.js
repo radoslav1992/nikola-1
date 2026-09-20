@@ -410,7 +410,7 @@ const views = {
         ["right", "Долу вдясно"],
         ["left", "Долу вляво"],
       ],
-    )}${area("recordingNotice", "Допълнително съобщение преди разговор (BG)", s.recordingNotice, 3)}${area("recordingNoticeEn", "Допълнително съобщение преди разговор (EN)", s.recordingNoticeEn, 3)}<button>Запази настройките</button></form><div class="panel"><p>Агент: ${esc(s.agentId || "Все още не е създаден")} · ${s.configured ? "Настроен" : "Изисква прилагане"}</p><button id="configure">${s.agentId ? "Приложи настройките в ElevenLabs" : "Създай агента в ElevenLabs"}</button><p>Този бутон настройва агента и избрания отделен телефонен номер. Външните ключове и webhook се задават от разработчика по инструкцията за внедряване.</p></div>`;
+    )}${area("recordingNotice", "Допълнително съобщение преди разговор (BG)", s.recordingNotice, 3)}${area("recordingNoticeEn", "Допълнително съобщение преди разговор (EN)", s.recordingNoticeEn, 3)}<button>Запази настройките</button></form><div class="panel"><p>Агент: ${esc(s.agentId || "Все още не е създаден")} · ${s.configured ? "Настроен" : "Изисква прилагане"}</p><button id="configure">${s.agentManagement === "external" ? "Провери връзката и активирай" : s.agentId ? "Приложи настройките в ElevenLabs" : "Създай агента в ElevenLabs"}</button><p>${s.agentManagement === "external" ? "Гласът, моделът, инструментите, записването и телефонът се управляват в ElevenLabs. Срокът за съхранение тук се отнася за копието на разговорите в сайта." : "Този бутон настройва агента и избрания отделен телефонен номер."}</p></div><form id="connect-agent" class="panel form-grid">${field("existingAgentId", "Свържи съществуващ ElevenLabs Agent ID", s.agentId || "agent_2001m3080a0ff86r8wgj0tk9n6mr")}<p class="wide">Проверява достъпа и разрешава език, първо съобщение и текстов режим за сайта. Запазва prompt-а, гласа, инструментите, webhook-а и телефонните настройки в ElevenLabs.</p><button>Свържи съществуващ агент</button></form>`;
     $("#settings").onsubmit = action(async () => {
       const f = $("#settings"),
         data = Object.fromEntries(new FormData(f));
@@ -418,7 +418,11 @@ const views = {
         data[k] = f.elements[k].checked;
       await api("settings", data, "PUT");
       await load();
-      notify("Запазено. Приложете настройките в ElevenLabs.");
+      notify(
+        s.agentManagement === "external"
+          ? "Запазено."
+          : "Запазено. Приложете настройките в ElevenLabs.",
+      );
     });
     $("#numbers").onclick = action(async () => {
       const { items } = await api("phone-numbers");
@@ -430,6 +434,13 @@ const views = {
           esc(n.assignedAgent || "Свободен"),
         ]),
       );
+    });
+    $("#connect-agent").onsubmit = action(async () => {
+      const agentId = $("#connect-agent").elements.existingAgentId.value.trim();
+      notify("Проверка на агента и свързване…");
+      await api("agent/connect", { agentId });
+      await load();
+      notify("Агентът е свързан. Текстовият и гласовият чат са активирани.");
     });
     $("#configure").onclick = action(async () => {
       notify("Настройване на агента…");

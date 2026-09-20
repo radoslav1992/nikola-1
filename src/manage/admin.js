@@ -22,7 +22,12 @@ import {
 import { createSlot, cancelAppointment, icsCalendar } from "./calendar.js";
 import { uploadImage } from "./media.js";
 import { fetchDetail, IMAGE_BASE } from "../scraper.js";
-import { configureAgent, eleven, syncConversations } from "./eleven.js";
+import {
+  configureAgent,
+  connectExistingAgent,
+  eleven,
+  syncConversations,
+} from "./eleven.js";
 
 export function adminPage() {
   return new Response(
@@ -417,7 +422,10 @@ export async function adminApi(request, env, ctx, refresh) {
           ? b.phoneMode
           : "website",
         phoneNumberId: clean(b.phoneNumberId, 100),
-        recordAudio: Boolean(b.recordAudio),
+        recordAudio:
+          old.agentManagement === "external"
+            ? old.recordAudio
+            : Boolean(b.recordAudio),
         retentionDays: Math.min(
           365,
           Math.max(1, Number(b.retentionDays) || 30),
@@ -426,7 +434,8 @@ export async function adminApi(request, env, ctx, refresh) {
         widgetPosition: b.widgetPosition === "left" ? "left" : "right",
         recordingNotice: clean(b.recordingNotice, 1000),
         recordingNoticeEn: clean(b.recordingNoticeEn, 1000),
-        configured: false,
+        configured:
+          old.agentManagement === "external" ? Boolean(old.configured) : false,
       });
       await audit(env, "settings.save");
       return json({ ok: true });
@@ -434,6 +443,10 @@ export async function adminApi(request, env, ctx, refresh) {
   }
   if (path === "/api/admin/agent/configure" && request.method === "POST")
     return json(await configureAgent(env));
+  if (path === "/api/admin/agent/connect" && request.method === "POST") {
+    const b = await bodyJSON(request);
+    return json(await connectExistingAgent(env, b.agentId));
+  }
   if (path === "/api/admin/phone-numbers") {
     const result = await eleven(env, "/convai/phone-numbers");
     return json({

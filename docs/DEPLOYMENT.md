@@ -69,6 +69,18 @@ openssl rand -hex 32 | npx wrangler secret put AGENT_TOOL_SECRET
 
 ## 3. ElevenLabs
 
+### Вече създаден агент
+
+В `/admin` → „Настройки“ използвайте „Свържи съществуващ ElevenLabs Agent ID“ и бутона „Свържи съществуващ агент“. ID-то на Никола е предварително попълнено: `agent_2001m3080a0ff86r8wgj0tk9n6mr`. Нужни са runtime secrets `ELEVENLABS_API_KEY` и `AGENT_TOOL_SECRET`.
+
+Сайтът проверява достъпа до агента, разрешава overrides за език, първо съобщение и текстов режим и проверява получаването на signed URL. След успех записва `agentId`, `agentEnabled: true`, `configured: true` и `agentManagement: "external"` в D1. Това не са Cloudflare variables; няма нова SQL миграция.
+
+Свързването запазва prompt, глас, инструменти, webhook, privacy и телефонните назначения. Те продължават да се управляват в ElevenLabs; сайтът прочита дали аудиото се записва за съобщението към посетителите. Настройте срока на съхранение и в ElevenLabs, и в сайта според желаната политика. Запазването на локалните настройки не изключва връзката; „Разреши разговори в сайта“ остава независим превключвател. „Провери връзката и активирай“ проверява повторно същия агент, без да създава нов.
+
+Това проверява връзката, но не изпълнява инструментите. След свързването тествайте текстов и гласов разговор, търсене на публикуван имот и получаване на транскрипция в админ панела. Инструментите в ElevenLabs трябва да сочат към реалния домейн `/api/agent/...`, с `Authorization: Bearer <AGENT_TOOL_SECRET>`. Post-call webhook URL е `/api/elevenlabs/webhook`, с HMAC secret в `ELEVENLABS_WEBHOOK_SECRET`, Transcript включено и Audio изключено.
+
+### Създаване на агент от сайта
+
 Запазете server-side ключ с необходимите права за agents, workspace secrets, conversations, knowledge (ако ползвате външни документи) и phone numbers:
 
 ```bash
