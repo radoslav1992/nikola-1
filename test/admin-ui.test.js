@@ -3,7 +3,12 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { JSDOM } from "jsdom";
 import { adminPage, adminApi } from "../src/manage/admin.js";
-import { database } from "./db-helper.js";
+import { database, source } from "./db-helper.js";
+import {
+  importCatalogue,
+  getProperty,
+  parse,
+} from "../src/manage/catalogue.js";
 import { hmac } from "../src/manage/auth.js";
 import { HttpError } from "../src/manage/http.js";
 const tick = async (fn) => {
@@ -13,6 +18,59 @@ const tick = async (fn) => {
   }
   throw Error("UI did not reach expected state");
 };
+test("source import fills missing title for review and preserves a broker-written title", async (t) => {
+  const env = {
+    DB: database(),
+    ADMIN_SESSION_SECRET: "secret",
+    ADMIN_PASSWORD_HASH: "hash",
+  };
+  t.after(() => env.DB.close());
+  await importCatalogue(env, { items: [{ ...source, title: "" }], total: 1 });
+  const expiry = Date.now() + 3600000;
+  const cookie = `ni_admin=${expiry}.nonce.${await hmac("secret", `${expiry}.nonce.hash`)}`;
+  t.mock.method(
+    globalThis,
+    "fetch",
+    async () =>
+      new Response(
+        "<html><h1>Къща от източника</h1><h2>Описание</h2><p>Пълно описание на имота с подробности за площта, двора и разпределението. Това е информация за преглед от брокера преди публикуване.</p><footer></footer></html>",
+        { headers: { "content-type": "text/html; charset=utf-8" } },
+      ),
+  );
+  const dom = new JSDOM(await adminPage().text(), {
+    url: "https://niimoti.com/admin",
+    runScripts: "outside-only",
+  });
+  t.after(() => dom.window.close());
+  const w = dom.window;
+  w.confirm = () => true;
+  w.fetch = async (path, opt = {}) =>
+    adminApi(
+      new Request(new URL(path, w.location.href), {
+        ...opt,
+        headers: { ...opt.headers, cookie, origin: "https://niimoti.com" },
+      }),
+      env,
+      {},
+    );
+  w.eval(readFileSync(new URL("../public/admin.js", import.meta.url), "utf8"));
+  const $ = (s) => w.document.querySelector(s);
+  await tick(() => $('[data-edit="101"]'));
+  $('[data-edit="101"]').click();
+  await tick(() => $("#import-detail"));
+  $("#import-detail").click();
+  await tick(
+    () =>
+      $("[name=title]").value === "Къща от източника" &&
+      !$("#import-detail").disabled,
+  );
+  assert.ok($("[name=description]").value.includes("Пълно описание"));
+  assert.equal(parse((await getProperty(env, 101)).content_json).title, "");
+  $("[name=title]").value = "Мое заглавие";
+  $("#import-detail").click();
+  await tick(() => !$("#import-detail").disabled);
+  assert.equal($("[name=title]").value, "Мое заглавие");
+});
 test("broker UI creates and saves a property, edits knowledge, manages slots and persists settings", async () => {
   const env = {
       DB: database(),

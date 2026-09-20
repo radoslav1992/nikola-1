@@ -471,7 +471,7 @@ async function editProperty(id) {
     { items: regions } = await api("regions");
   $("#title").textContent = "Редакция на имот";
   $("#content").innerHTML =
-    `<div class="toolbar"><button id="back" class="quiet">← Към имотите</button><button data-note="${id}" data-kind="property" class="quiet">Лични бележки</button><a href="/imot/${id}" target="_blank" rel="noopener">Публична страница</a></div><form id="property" class="form-grid panel"><h2 class="wide">Публикация и наличност</h2>${select(
+    `<div class="toolbar"><button id="back" class="quiet">← Към имотите</button><button data-note="${id}" data-kind="property" class="quiet">Лични бележки</button><a href="/imot/${id}" target="_blank" rel="noopener">Публична страница</a>${editor.source_id ? '<button type="button" id="import-detail" class="quiet">Зареди заглавие, описание и снимки от SUPRIMMO</button>' : ""}</div><p class="muted">За публикуване са нужни заглавие и пълно описание на BG и EN, тип, действително населено място, снимка и двете отметки за преглед в края. Можете да запазвате незавършен имот като „Чернова“.</p><form id="property" class="form-grid panel"><h2 class="wide">Публикация и наличност</h2>${select(
       "publication",
       "Публикация",
       editor.publication,
@@ -481,7 +481,7 @@ async function editProperty(id) {
       "Наличност",
       editor.status,
       ["active", "reserved", "sold", "withdrawn"].map((s) => [s, states[s]]),
-    )}${check("sync_price", "Обновявай цената от SUPRIMMO", editor.sync_price && editor.source_id)}${check("sync_status", "Следи наличността в SUPRIMMO", editor.sync_status && editor.source_id)}<p class="wide muted">Източник: ${esc(editor.source_id || "Собствен имот")} · Последна синхронизация: ${time(editor.synced_at)} · Цена при източника: ${esc(editor.source.price ?? "—")} €. При две пълни проверки без обявата тя се сваля автоматично, ако следенето е включено.</p>${field("title", "Заглавие (BG)", c.title)}${field("titleEn", "Заглавие (EN)", c.titleEn)}${field("type", "Тип (напр. Къща)", c.type)}${field("place", "Действително населено място", c.place)}${field("region", "Област", c.region)}${select("regionKey", "Район на сайта", c.regionKey || "", [["", "Избери район"], ...regions.map((r) => [r.key, r.name.bg])])}${field("price", "Собствена цена (€)", c.price, "number")}${field("area", "Площ (м²)", c.area, "number")}${field("plotArea", "Двор / парцел (м²)", c.plotArea, "number")}${field("bedrooms", "Спални", c.bedrooms, "number")}${field("floors", "Етажи", c.floors, "number")}${check("rent", "Под наем", c.rent)}${area("description", "Пълно описание (BG)", c.description, 12)}${area("descriptionEn", "Пълно описание (EN)", c.descriptionEn, 12)}<div class="wide toolbar"><button type="button" id="translate" class="quiet">Подготви английски превод</button>${editor.source_id ? '<button type="button" id="import-detail" class="quiet">Зареди описание и снимки от източника</button>' : ""}</div><h2 class="wide">Снимки</h2><div id="images" class="wide images"></div><label class="wide">Добави снимки (JPEG, PNG, WebP до 8 MB)<input id="upload" type="file" accept="image/jpeg,image/png,image/webp" multiple></label><h2 class="wide">Проверени отговори за купувачите</h2><p class="wide">Само отговори с посочен източник и дата на проверката се показват на сайта и агента.</p>${Object.entries(
+    )}${check("sync_price", "Обновявай цената от SUPRIMMO", editor.sync_price && editor.source_id)}${check("sync_status", "Следи наличността в SUPRIMMO", editor.sync_status && editor.source_id)}<p class="wide muted">Източник: ${esc(editor.source_id || "Собствен имот")} · Последна синхронизация: ${time(editor.synced_at)} · Цена при източника: ${esc(editor.source.price ?? "—")} €. При две пълни проверки без обявата тя се сваля автоматично, ако следенето е включено.</p>${field("title", "Заглавие (BG)", c.title)}${field("titleEn", "Заглавие (EN)", c.titleEn)}${field("type", "Тип (напр. Къща)", c.type)}${field("place", "Действително населено място", c.place)}${field("region", "Област", c.region)}${select("regionKey", "Район на сайта", c.regionKey || "", [["", "Избери район"], ...regions.map((r) => [r.key, r.name.bg])])}${field("price", "Собствена цена (€)", c.price, "number")}${field("area", "Площ (м²)", c.area, "number")}${field("plotArea", "Двор / парцел (м²)", c.plotArea, "number")}${field("bedrooms", "Спални", c.bedrooms, "number")}${field("floors", "Етажи", c.floors, "number")}${check("rent", "Под наем", c.rent)}${area("description", "Пълно описание (BG)", c.description, 12)}${area("descriptionEn", "Пълно описание (EN)", c.descriptionEn, 12)}<div class="wide toolbar"><button type="button" id="translate" class="quiet">Подготви английски превод</button></div><h2 class="wide">Снимки</h2><div id="images" class="wide images"></div><label class="wide">Добави снимки (JPEG, PNG, WebP до 8 MB)<input id="upload" type="file" accept="image/jpeg,image/png,image/webp" multiple></label><h2 class="wide">Проверени отговори за купувачите</h2><p class="wide">Само отговори с посочен източник и дата на проверката се показват на сайта и агента.</p>${Object.entries(
       {
         access: "Достъп до имота",
         yearRound: "Целогодишно живеене",
@@ -579,18 +579,21 @@ async function editProperty(id) {
         return;
       notify("Извличане на описание и снимки…");
       const d = await api(`properties/${id}/detail`, {});
-      f.elements.description.value = d.description;
-      images = [];
+      if (!f.elements.title.value.trim())
+        f.elements.title.value = d.title || "";
+      if (d.description) f.elements.description.value = d.description;
+      const importedImages = [];
       for (const image of d.images) {
         notify(
-          `Копиране на снимка ${images.length + 1} от ${d.images.length}…`,
+          `Копиране на снимка ${importedImages.length + 1} от ${d.images.length}…`,
         );
-        images.push(
+        importedImages.push(
           d.mirrorAvailable
             ? (await api(`properties/${id}/mirror`, { image })).url
             : image,
         );
       }
+      if (importedImages.length) images = importedImages;
       drawImages();
       notify(
         d.mirrorAvailable

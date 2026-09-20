@@ -51,6 +51,33 @@ test("imports remain drafts; publication requires full translated content and ve
       (x) => x.status === 400,
     );
 });
+test("publication errors list only the missing requirements and drafts remain saveable", async () => {
+  const e = env();
+  try {
+    await assert.rejects(
+      saveProperty(e, null, {
+        content: { ...content, titleEn: "", place: "близо до гр. Севлиево" },
+        publication: "published",
+      }),
+      (error) => {
+        assert.equal(error.status, 400);
+        assert.ok(error.message.includes("заглавие (EN)"));
+        assert.ok(error.message.includes("вместо „близо до“"));
+        assert.ok(!error.message.includes("описание (BG)"));
+        assert.ok(!error.message.includes("снимка"));
+        return true;
+      },
+    );
+    const draft = await saveProperty(e, null, {
+      content: {},
+      publication: "draft",
+    });
+    assert.equal(draft.publication, "draft");
+    assert.equal((await publicCatalogue(e)).items.length, 0);
+  } finally {
+    e.DB.close();
+  }
+});
 test("source prices update without overwriting curated content; stale editor rejected; incomplete import never withdraws", async () => {
   const e = env(),
     p = await publish(e);

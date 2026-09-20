@@ -170,27 +170,31 @@ export async function saveProperty(env, propertyId, body) {
     !["active", "reserved", "sold", "withdrawn"].includes(status)
   )
     throw new HttpError(400, "Невалиден статус.");
-  if (
-    publication === "published" &&
-    (!content.title ||
-      !content.type ||
-      !content.place ||
-      !content.description ||
-      !content.images.length ||
-      !content.contentReviewed ||
-      !content.locationConfirmed ||
-      !content.titleEn ||
-      !content.descriptionEn)
-  )
-    throw new HttpError(
-      400,
-      "За публикуване попълнете заглавие, тип, населено място, пълно описание, снимка английски превод, потвърдено населено място и преглед за лични данни.",
-    );
-  if (publication === "published" && /^близо до|^near /i.test(content.place))
-    throw new HttpError(
-      400,
-      "Посочете действителното населено място, а не „близо до“.",
-    );
+  if (publication === "published") {
+    const missing = [
+      [content.title, "заглавие (BG)"],
+      [content.titleEn, "заглавие (EN)"],
+      [content.type, "тип имот"],
+      [content.place, "действително населено място"],
+      [content.description, "пълно описание (BG)"],
+      [content.descriptionEn, "пълно описание (EN)"],
+      [content.images.length, "поне една снимка"],
+      [content.locationConfirmed, "отметка за потвърдено населено място"],
+      [
+        content.contentReviewed,
+        "отметка за преглед на съдържанието и личните данни",
+      ],
+    ]
+      .filter(([valid]) => !valid)
+      .map(([, label]) => label);
+    if (/^(?:близо до|near\b)/i.test(content.place))
+      missing.push("действително населено място вместо „близо до“");
+    if (missing.length)
+      throw new HttpError(
+        400,
+        `За публикуване липсват: ${missing.join("; ")}. Попълнете ги или запазете като „Чернова“.`,
+      );
+  }
   const propertyKey =
     previous?.id || Math.floor(Date.now() * 1000 + Math.random() * 1000);
   const syncedPrice = previous?.source_id && Boolean(body.sync_price) ? 1 : 0;
@@ -225,7 +229,7 @@ export async function saveProperty(env, propertyId, body) {
 }
 export function initialContent(l, detail = {}) {
   return {
-    title: l.title,
+    title: detail.title || l.title,
     type: l.type,
     place: l.place,
     region: l.region,

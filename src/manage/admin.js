@@ -82,6 +82,7 @@ export async function adminApi(request, env, ctx, refresh) {
       const content = parse(row.content_json);
       // Return imported content for review; never overwrite a saved description automatically.
       return json({
+        title: detail.title || source.title || "",
         description: (detail.paragraphs || []).join("\n\n"),
         images: detail.images?.length ? detail.images : source.images || [],
         features: detail.features || [],
