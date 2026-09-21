@@ -71,6 +71,22 @@ test("Worker routes use managed data, hide drafts/media, preserve English URL, p
   });
   const data = await (await call("/api/listings")).json(),
     slug = data.items[0].slug;
+  for (const path of [
+    "/agent/catalog",
+    "/feeds/properties.xml",
+    "/feeds/properties.json",
+    "/feeds/properties/101.json",
+  ]) {
+    const feed = await call(path);
+    assert.equal(feed.status, 200);
+    assert.equal(feed.headers.get("cache-control"), "no-store");
+    assert.ok((await feed.text()).includes(content.title));
+  }
+  assert.equal(
+    (await (await call("/en/feeds/properties/101.json")).json()).description,
+    content.descriptionEn,
+  );
+  assert.equal((await call("/feeds/properties/999.json")).status, 404);
   for (const lang of ["", "/en"]) {
     const r = await call(`${lang}/imot/101/${slug}`);
     assert.equal(r.status, 200);

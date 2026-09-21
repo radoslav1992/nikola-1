@@ -4,6 +4,7 @@ import { HttpError, rateLimit, sameOrigin } from './manage/http.js';
 import { isAdmin } from './manage/auth.js';
 import { serveMedia } from './manage/media.js';
 import { settings, regions } from './manage/catalogue.js';
+import { catalogueFeed } from './manage/feed.js';
 import { assistantApi, agentTool, receiveWebhook, syncConversations, cleanup } from './manage/eleven.js';
 import { renderRegion } from './render/region.js';
 /**
@@ -86,6 +87,7 @@ async function handle(request, env, ctx) {
   if (path.length > 1 && path.endsWith('/')) path = path.slice(0, -1);
 
   if (path === '/healthz') return json({ ok: true, site: SITE.domain, time: new Date().toISOString() });
+  if (path === '/agent/catalog' || /^\/feeds\/properties(?:\.(?:json|xml)|\/\d+\.json)$/.test(path)) return catalogueFeed(request, env, path, lang);
 
   if (path === '/admin') return adminPage();
   if (path.startsWith('/api/admin/')) return adminApi(request,env,ctx,refreshListings);
