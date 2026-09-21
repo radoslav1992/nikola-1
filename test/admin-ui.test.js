@@ -43,6 +43,7 @@ test("source import fills missing title for review and preserves a broker-writte
   });
   t.after(() => dom.window.close());
   const w = dom.window;
+  w.AbortController = globalThis.AbortController;
   w.confirm = () => true;
   w.fetch = async (path, opt = {}) =>
     adminApi(
@@ -70,6 +71,48 @@ test("source import fills missing title for review and preserves a broker-writte
   $("#import-detail").click();
   await tick(() => !$("#import-detail").disabled);
   assert.equal($("[name=title]").value, "Мое заглавие");
+  // Translation must show progress and failures beside the button, not only
+  // in the page header that is offscreen when editing a long listing.
+  let finishTranslation;
+  env.AI = {
+    run: () =>
+      new Promise((resolve) => {
+        finishTranslation = resolve;
+      }),
+  };
+  $("#translate").click();
+  assert.equal($("#translate").disabled, true);
+  assert.equal($("#translate").textContent, "Превежда се…");
+  assert.match($("#translation-status").textContent, /Подготвяне/);
+  await tick(() => finishTranslation).catch((error) => {
+    throw Error(error.message + ": " + $("#translation-status").textContent);
+  });
+  finishTranslation({
+    response: JSON.stringify({
+      titleEn: "My title",
+      descriptionEn: "Full translated description.",
+    }),
+  });
+  await tick(() => !$("#translate").disabled);
+  assert.equal($("[name=titleEn]").value, "My title");
+  assert.equal($("[name=descriptionEn]").value, "Full translated description.");
+  assert.match($("#translation-status").textContent, /са попълнени/);
+  assert.equal(
+    parse((await getProperty(env, 101)).content_json).titleEn,
+    undefined,
+  );
+  env.AI.run = async () => {
+    throw Error("upstream failure");
+  };
+  $("#translate").click();
+  await tick(() => !$("#translate").disabled);
+  assert.match($("#translation-status").textContent, /Workers AI не успя/);
+  assert.equal($("#translation-status").className, "error");
+  assert.equal($("[name=titleEn]").value, "My title");
+  delete env.AI;
+  $("#translate").click();
+  await tick(() => !$("#translate").disabled);
+  assert.match($("#translation-status").textContent, /binding с име AI/);
 });
 test("broker UI creates and saves a property, edits knowledge, manages slots and persists settings", async () => {
   const env = {

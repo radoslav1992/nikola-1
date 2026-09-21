@@ -48,9 +48,10 @@ const time = (v) =>
         timeStyle: "short",
       })
     : "—";
-async function api(path, body, method = body ? "POST" : "GET") {
+async function api(path, body, method = body ? "POST" : "GET", signal) {
   const r = await fetch("/api/admin/" + path, {
     method,
+    signal,
     headers: body ? { "content-type": "application/json" } : undefined,
     body: body ? JSON.stringify(body) : undefined,
   });
@@ -481,7 +482,7 @@ async function editProperty(id) {
       "Наличност",
       editor.status,
       ["active", "reserved", "sold", "withdrawn"].map((s) => [s, states[s]]),
-    )}${check("sync_price", "Обновявай цената от SUPRIMMO", editor.sync_price && editor.source_id)}${check("sync_status", "Следи наличността в SUPRIMMO", editor.sync_status && editor.source_id)}<p class="wide muted">Източник: ${esc(editor.source_id || "Собствен имот")} · Последна синхронизация: ${time(editor.synced_at)} · Цена при източника: ${esc(editor.source.price ?? "—")} €. При две пълни проверки без обявата тя се сваля автоматично, ако следенето е включено.</p>${field("title", "Заглавие (BG)", c.title)}${field("titleEn", "Заглавие (EN)", c.titleEn)}${field("type", "Тип (напр. Къща)", c.type)}${field("place", "Действително населено място", c.place)}${field("region", "Област", c.region)}${select("regionKey", "Район на сайта", c.regionKey || "", [["", "Избери район"], ...regions.map((r) => [r.key, r.name.bg])])}${field("price", "Собствена цена (€)", c.price, "number")}${field("area", "Площ (м²)", c.area, "number")}${field("plotArea", "Двор / парцел (м²)", c.plotArea, "number")}${field("bedrooms", "Спални", c.bedrooms, "number")}${field("floors", "Етажи", c.floors, "number")}${check("rent", "Под наем", c.rent)}${area("description", "Пълно описание (BG)", c.description, 12)}${area("descriptionEn", "Пълно описание (EN)", c.descriptionEn, 12)}<div class="wide toolbar"><button type="button" id="translate" class="quiet">Подготви английски превод</button></div><h2 class="wide">Снимки</h2><div id="images" class="wide images"></div><label class="wide">Добави снимки (JPEG, PNG, WebP до 8 MB)<input id="upload" type="file" accept="image/jpeg,image/png,image/webp" multiple></label><h2 class="wide">Проверени отговори за купувачите</h2><p class="wide">Само отговори с посочен източник и дата на проверката се показват на сайта и агента.</p>${Object.entries(
+    )}${check("sync_price", "Обновявай цената от SUPRIMMO", editor.sync_price && editor.source_id)}${check("sync_status", "Следи наличността в SUPRIMMO", editor.sync_status && editor.source_id)}<p class="wide muted">Източник: ${esc(editor.source_id || "Собствен имот")} · Последна синхронизация: ${time(editor.synced_at)} · Цена при източника: ${esc(editor.source.price ?? "—")} €. При две пълни проверки без обявата тя се сваля автоматично, ако следенето е включено.</p>${field("title", "Заглавие (BG)", c.title)}${field("titleEn", "Заглавие (EN)", c.titleEn)}${field("type", "Тип (напр. Къща)", c.type)}${field("place", "Действително населено място", c.place)}${field("region", "Област", c.region)}${select("regionKey", "Район на сайта", c.regionKey || "", [["", "Избери район"], ...regions.map((r) => [r.key, r.name.bg])])}${field("price", "Собствена цена (€)", c.price, "number")}${field("area", "Площ (м²)", c.area, "number")}${field("plotArea", "Двор / парцел (м²)", c.plotArea, "number")}${field("bedrooms", "Спални", c.bedrooms, "number")}${field("floors", "Етажи", c.floors, "number")}${check("rent", "Под наем", c.rent)}${area("description", "Пълно описание (BG)", c.description, 12)}${area("descriptionEn", "Пълно описание (EN)", c.descriptionEn, 12)}<div class="wide toolbar"><button type="button" id="translate" class="quiet">Подготви английски превод</button><span id="translation-status" role="status" aria-live="polite"></span></div><h2 class="wide">Снимки</h2><div id="images" class="wide images"></div><label class="wide">Добави снимки (JPEG, PNG, WebP до 8 MB)<input id="upload" type="file" accept="image/jpeg,image/png,image/webp" multiple></label><h2 class="wide">Проверени отговори за купувачите</h2><p class="wide">Само отговори с посочен източник и дата на проверката се показват на сайта и агента.</p>${Object.entries(
       {
         access: "Достъп до имота",
         yearRound: "Целогодишно живеене",
@@ -553,21 +554,75 @@ async function editProperty(id) {
     drawImages();
     notify("Снимките са качени. Запазете имота.");
   });
-  $("#translate").onclick = action(async () => {
-    notify("Подготвяне на превод…");
-    const result = await api(`properties/${id}/translate`, {
-      title: f.elements.title.value,
-      description: f.elements.description.value,
-    });
+  $("#translate").onclick = async () => {
+    const button = $("#translate"),
+      status = $("#translation-status");
+    if (button.disabled) return;
+    const report = (text, error = false) => {
+      status.textContent = text;
+      status.className = error ? "error" : "success";
+      $("#editor-status").textContent = text;
+      notify(text, error);
+    };
+    const title = f.elements.title.value.trim(),
+      description = f.elements.description.value.trim();
+    if (!title || !description) {
+      report("Първо попълнете заглавието и описанието на български.", true);
+      return;
+    }
+    const previousTitleEn = f.elements.titleEn.value,
+      previousDescriptionEn = f.elements.descriptionEn.value;
     if (
-      f.elements.descriptionEn.value &&
-      !confirm("Да заменя ли незапазения английски текст с новия превод?")
+      (previousTitleEn || previousDescriptionEn) &&
+      !confirm("Да заменя ли английския текст с нов превод?")
     )
       return;
-    f.elements.titleEn.value = result.titleEn;
-    f.elements.descriptionEn.value = result.descriptionEn;
-    notify("Преводът е готов за преглед и запис.");
-  });
+    button.disabled = true;
+    button.textContent = "Превежда се…";
+    button.setAttribute("aria-busy", "true");
+    report("Подготвяне на английски превод. Може да отнеме до 90 секунди.");
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 90000);
+    try {
+      const result = await api(
+        `properties/${id}/translate`,
+        { title, description },
+        "POST",
+        controller.signal,
+      );
+      if (!f.isConnected) return;
+      if (
+        f.elements.title.value.trim() !== title ||
+        f.elements.description.value.trim() !== description ||
+        f.elements.titleEn.value !== previousTitleEn ||
+        f.elements.descriptionEn.value !== previousDescriptionEn
+      ) {
+        report(
+          "Текстът е променен по време на превода. Натиснете отново за превод на актуалния текст.",
+          true,
+        );
+        return;
+      }
+      f.elements.titleEn.value = result.titleEn;
+      f.elements.descriptionEn.value = result.descriptionEn;
+      report(
+        "Английското заглавие и описание са попълнени. Прегледайте ги и запазете имота.",
+      );
+    } catch (error) {
+      if (f.isConnected)
+        report(
+          controller.signal.aborted
+            ? "Преводът се забави. Опитайте отново след малко или въведете английския текст ръчно."
+            : error.message,
+          true,
+        );
+    } finally {
+      clearTimeout(timeout);
+      button.disabled = false;
+      button.textContent = "Подготви английски превод";
+      button.removeAttribute("aria-busy");
+    }
+  };
   if ($("#import-detail"))
     $("#import-detail").onclick = action(async () => {
       if (
