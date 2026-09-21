@@ -42,7 +42,7 @@ const suggestions = propertyId
 root.innerHTML = `
 <button class="assistant-launch" type="button" aria-controls="assistant-dialog" aria-expanded="false">${icon("chat")}<span>${txt("Попитайте асистента", "Ask the assistant")}</span><span class="assistant-ai">AI</span></button>
 <section id="assistant-dialog" class="assistant-panel" role="dialog" aria-modal="true" aria-labelledby="assistant-title" hidden>
-  <header class="assistant-header"><div class="assistant-avatar" aria-hidden="true">НИ<span></span></div><div class="assistant-heading"><strong id="assistant-title">${txt("Асистент на Никола", "Nikola’s assistant")}</strong><span>${txt("Вашият ориентир сред имотите", "A little guidance. A place of your own.")}</span></div><button type="button" data-close aria-label="${txt("Затвори и приключи разговора", "Close and end conversation")}">${icon("close")}</button></header>
+  <header class="assistant-header"><div class="assistant-avatar" aria-hidden="true">НИ<span></span></div><div class="assistant-heading"><strong id="assistant-title">${txt("Асистент на Никола", "Nikola’s assistant")}</strong><span>${txt("Вашият ориентир сред имотите", "A little guidance. A place of your own.")}</span></div><button type="button" data-close aria-label="${txt("Скрий прозореца", "Hide chat")}">${icon("close")}</button></header>
   <nav data-switch class="assistant-switch" aria-label="${txt("Режим на разговор", "Conversation mode")}" hidden><button type="button" data-switch-text title="${txt("Започва нов текстов разговор", "Starts a new text conversation")}" aria-pressed="true">${icon("chat")}${txt("Текстов чат", "Text chat")}</button><button type="button" data-switch-voice title="${txt("Започва нов гласов разговор", "Starts a new voice conversation")}" aria-pressed="false">${icon("mic")}${txt("Гласов разговор", "Voice call")}</button></nav>
   <div class="assistant-scroll">
     <div data-welcome class="assistant-welcome"><span class="assistant-eyebrow">${icon("home")}${propertyId ? txt("ЗА ТОЗИ ИМОТ", "ABOUT THIS PROPERTY") : txt("НЕКА НАМЕРИМ ВАШЕТО МЯСТО", "LET’S FIND YOUR PLACE")}</span><h2>${propertyId ? txt("Какво искате да знаете?", "What would you like to know?") : txt("Добрият избор започва с разговор.", "A good choice starts with a conversation.")}</h2><p>${propertyId ? txt("Попитайте за достъпа, условията за живеене или района. Отговарям по информацията в обявата.", "Ask about access, living conditions or the area. My answers use the listing’s information.") : txt("Разкажете ми какъв имот търсите. Ще Ви помогна да разгледате възможностите.", "Tell me what you’re looking for. I’ll help you explore the possibilities.")}</p></div>
@@ -148,6 +148,10 @@ async function end() {
   $("[data-voice-state]").hidden = true;
   root.classList.remove("is-speaking");
   voiceMode = false;
+  $("[data-close]").setAttribute(
+    "aria-label",
+    txt("Скрий прозореца", "Hide chat"),
+  );
   $("[data-messages]").hidden = false;
   $("[data-message] button").disabled = false;
   $("#assistant-input").disabled = false;
@@ -170,6 +174,12 @@ async function start(voice) {
   $("[data-messages]").replaceChildren();
   $("[data-matches]").replaceChildren();
   voiceMode = voice;
+  $("[data-close]").setAttribute(
+    "aria-label",
+    voice
+      ? txt("Затвори и приключи гласовия разговор", "Close and end voice call")
+      : txt("Скрий прозореца", "Hide chat"),
+  );
   transcriptOpen = false;
   root.classList.toggle("is-voice", voice);
   $("[data-messages]").hidden = voice;
@@ -235,8 +245,17 @@ async function start(voice) {
               ? txt("Микрофонът е изключен", "Microphone muted")
               : txt("Слушам Ви…", "I’m listening…");
       },
-      onError: () => {
+      onError: (_message, context) => {
         if (started !== generation) return;
+        // The SDK also reports recoverable tool failures here. It sends their
+        // result back to the agent; disconnecting would destroy that context.
+        if (context?.clientToolName) {
+          status.textContent = txt(
+            "Не успях да покажа резултата. Разговорът продължава — можете да зададете следващия си въпрос.",
+            "Could not show that result. Your conversation is still active — you can continue chatting.",
+          );
+          return;
+        }
         status.textContent = txt(
           "Връзката прекъсна. Опитайте отново или се свържете с Никола.",
           "Connection failed. Try again or contact Nikola.",
@@ -300,6 +319,9 @@ $("[data-close]").onclick = async () => {
   root.classList.remove("is-open");
   $(".assistant-launch").setAttribute("aria-expanded", "false");
   previousFocus?.focus();
+  // Minimize a text chat without losing its live conversation and history.
+  // Voice still ends on close so a hidden widget cannot keep recording.
+  if (session && !voiceMode) return;
   await end();
 };
 $("[data-text]").onclick = () => start(false);
@@ -366,7 +388,6 @@ async function switchMode(voice) {
 }
 $("[data-switch-text]").onclick = () => switchMode(false);
 $("[data-switch-voice]").onclick = () => switchMode(true);
-$("#assistant-input").oninput = () => session?.sendUserActivity();
 $("[data-message]").onsubmit = async (e) => {
   e.preventDefault();
   const input = $("#assistant-input");

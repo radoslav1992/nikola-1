@@ -30,7 +30,7 @@ const until = async (fn) => {
   }
   throw Error("Assistant did not reach expected state");
 };
-test("assistant requires explicit mode selection, passes property context, shows matches and ends on close", async () => {
+test("assistant preserves a text session across messages, tool errors and minimize; voice stays separate", async () => {
   const dom = new JSDOM(
       '<html lang="bg"><body><form data-agent-ask><input name="q" value="Какъв е достъпът?"></form></body></html>',
       { url: "https://niimoti.com/imot/101/house", runScripts: "outside-only" },
@@ -91,13 +91,45 @@ test("assistant requires explicit mode selection, passes property context, shows
   );
   await until(() => sent.length);
   assert.deepEqual(sent, ["Какъв е достъпът?"]);
+  const textOptions = options;
+  options.onMessage({ source: "ai", message: "Достъпът е по асфалтов път." });
+  $("#assistant-input").value = "А има ли вода?";
+  $("[data-message]").dispatchEvent(
+    new w.Event("submit", { cancelable: true }),
+  );
+  assert.equal(options, textOptions);
+  assert.equal(sent.at(-1), "А има ли вода?");
+  options.onError("Client tool failed", { clientToolName: "show_properties" });
+  assert.equal(
+    ended,
+    false,
+    "a tool error must not end a healthy conversation",
+  );
   await options.clientTools.show_properties({ ids: "101" });
   assert.equal($("[data-matches]").textContent, "Публикуван имот");
   $("[data-close]").click();
-  await until(() => ended);
+  assert.equal(
+    ended,
+    false,
+    "minimizing text chat must retain the same session",
+  );
   assert.equal($(".assistant-panel").hidden, true);
   const oldOptions = options;
   $(".assistant-launch").click();
+  $("#assistant-input").value = "Припомни ми достъпа.";
+  $("[data-message]").dispatchEvent(
+    new w.Event("submit", { cancelable: true }),
+  );
+  assert.equal(options, textOptions);
+  assert.equal(requests.filter((r) => r.path.includes("/session")).length, 1);
+  assert.deepEqual(sent, [
+    "Какъв е достъпът?",
+    "А има ли вода?",
+    "Припомни ми достъпа.",
+  ]);
+  assert.match($("[data-messages]").textContent, /Достъпът е по асфалтов път/);
+  $("[data-end]").click();
+  await until(() => ended);
   $("[data-voice]").click();
   await until(() => options !== oldOptions && !$("[data-mute]").hidden);
   assert.equal(options.textOnly, false);
