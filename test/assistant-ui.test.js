@@ -39,12 +39,14 @@ test("assistant requires explicit mode selection, passes property context, shows
   w.HTMLElement.prototype.scrollIntoView = () => {};
   let options = null,
     ended = false,
+    micStates = [],
     sent = [],
     requests = [];
   w.fakeSession = async (o) => {
     options = o;
     return {
       sendUserMessage: (m) => sent.push(m),
+      setMicMuted: (m) => micStates.push(m),
       endSession: async () => {
         ended = true;
         o.onDisconnect();
@@ -86,5 +88,35 @@ test("assistant requires explicit mode selection, passes property context, shows
   $("[data-close]").click();
   await until(() => ended);
   assert.equal($(".assistant-panel").hidden, true);
+  const oldOptions = options;
+  $(".assistant-launch").click();
+  $("[data-voice]").click();
+  await until(() => options !== oldOptions && !$("[data-mute]").hidden);
+  assert.equal(options.textOnly, false);
+  assert.equal($("[data-voice-state]").hidden, false);
+  options.onModeChange({ mode: "speaking" });
+  assert.equal($(".assistant").classList.contains("is-speaking"), true);
+  $("[data-mute]").click();
+  assert.deepEqual(micStates, [true]);
+  assert.equal($("[data-mute]").getAttribute("aria-pressed"), "true");
+  options.onModeChange({ mode: "listening" });
+  assert.match($("[data-voice-label]").textContent, /изключен/);
+  oldOptions.onDisconnect();
+  assert.equal(
+    $("[data-message]").hidden,
+    false,
+    "an old session must not close the new chat",
+  );
+  options.onMessage({
+    source: "ai",
+    message: '<img src=x onerror="alert(1)">',
+  });
+  assert.equal(
+    $("[data-messages] img"),
+    null,
+    "assistant responses remain text, never executable HTML",
+  );
+  $("[data-close]").click();
+  await until(() => $("[data-voice-state]").hidden);
   dom.window.close();
 });
