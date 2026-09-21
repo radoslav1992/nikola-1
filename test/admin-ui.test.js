@@ -128,6 +128,7 @@ test("broker UI creates and saves a property, edits knowledge, manages slots and
       runScripts: "outside-only",
     }),
     w = dom.window;
+  w.AbortController = globalThis.AbortController;
   w.confirm = () => true;
   w.HTMLElement.prototype.scrollIntoView = () => {};
   w.fetch = async (path, opt = {}) => {
@@ -215,5 +216,13 @@ test("broker UI creates and saves a property, edits knowledge, manages slots and
       ).first()
     ).value.includes("+359884128117"),
   );
+  // A failed connection must be visible at the form near the bottom of settings.
+  const connect = $("#connect-agent");
+  submit(connect);
+  assert.equal(connect.querySelector("button").disabled, true);
+  assert.match($("#agent-connection-status").textContent, /Проверка/);
+  await tick(() => !connect.querySelector("button").disabled);
+  assert.match($("#agent-connection-status").textContent, /AGENT_TOOL_SECRET/);
+  assert.equal($("#agent-connection-status").className, "wide error");
   dom.window.close();
 });

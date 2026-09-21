@@ -24,24 +24,42 @@ import { toString } from "../render/html.js";
 export async function eleven(
   env,
   path,
-  { method = "GET", body, raw = false } = {},
+  { method = "GET", body, raw = false, operation = "ElevenLabs" } = {},
 ) {
   if (!env.ELEVENLABS_API_KEY)
-    throw new HttpError(503, "ElevenLabs не е настроен.");
-  const res = await fetch(`https://api.elevenlabs.io/v1${path}`, {
-    method,
-    headers: {
-      "xi-api-key": env.ELEVENLABS_API_KEY,
-      "content-type": "application/json",
-    },
-    body: body ? JSON.stringify(body) : undefined,
-    signal: AbortSignal.timeout(25000),
-  });
-  if (!res.ok)
+    throw new HttpError(
+      503,
+      "Добавете ELEVENLABS_API_KEY като runtime secret в Cloudflare.",
+    );
+  let res;
+  try {
+    res = await fetch(`https://api.elevenlabs.io/v1${path}`, {
+      method,
+      headers: {
+        "xi-api-key": env.ELEVENLABS_API_KEY,
+        "content-type": "application/json",
+      },
+      body: body ? JSON.stringify(body) : undefined,
+      signal: AbortSignal.timeout(25000),
+    });
+  } catch {
     throw new HttpError(
       502,
-      `ElevenLabs върна грешка (${res.status}). Проверете настройките и наличния кредит.`,
+      `${operation}: няма отговор от ElevenLabs в рамките на заявката. Опитайте отново.`,
     );
+  }
+  if (!res.ok) {
+    const advice =
+      {
+        401: "ELEVENLABS_API_KEY е невалиден или няма нужните права. Проверете ключа в Cloudflare и достъпа му до Agents в ElevenLabs.",
+        403: "Достъпът е отказан. Проверете правата на API ключа за четене, редакция на агенти и стартиране на разговори в същия ElevenLabs workspace.",
+        404: "Ресурсът не е намерен. Проверете Agent ID и дали API ключът е от същия ElevenLabs workspace.",
+        422: "ElevenLabs отхвърли настройките. Изпратете това съобщение на разработчика.",
+        429: "Достигнат е лимитът на ElevenLabs. Опитайте след малко и проверете лимитите на акаунта.",
+      }[res.status] ||
+      "ElevenLabs не изпълни заявката. Опитайте отново и проверете акаунта.";
+    throw new HttpError(502, `${operation} (HTTP ${res.status}): ${advice}`);
+  }
   if (raw)
     return new Response(res.body, {
       headers: {
@@ -49,7 +67,15 @@ export async function eleven(
         "cache-control": "no-store",
       },
     });
-  return res.status === 204 ? {} : res.json();
+  if (res.status === 204) return {};
+  try {
+    return await res.json();
+  } catch {
+    throw new HttpError(
+      502,
+      `${operation}: ElevenLabs върна невалиден отговор. Опитайте отново.`,
+    );
+  }
 }
 export function notice(s, lang = "bg") {
   return lang === "en"
@@ -278,13 +304,16 @@ export async function connectExistingAgent(env, value) {
     throw new HttpError(400, "Въведете валиден ElevenLabs Agent ID.");
   if (!env.AGENT_TOOL_SECRET)
     throw new HttpError(503, "Добавете AGENT_TOOL_SECRET в Cloudflare.");
-  const agent = await eleven(env, `/convai/agents/${agentId}`);
+  const agent = await eleven(env, `/convai/agents/${agentId}`, {
+    operation: "Проверка на достъпа до агента",
+  });
   if (agent.agent_id !== agentId)
     throw new HttpError(502, "ElevenLabs не потвърди избрания агент.");
   const overrides = agent.platform_settings?.overrides || {};
   const config = overrides.conversation_config_override || {};
   await eleven(env, `/convai/agents/${agentId}`, {
     method: "PATCH",
+    operation: "Разрешаване на настройките за уеб чата",
     body: {
       platform_settings: {
         overrides: {
@@ -301,6 +330,7 @@ export async function connectExistingAgent(env, value) {
   const signed = await eleven(
     env,
     `/convai/conversation/get-signed-url?agent_id=${encodeURIComponent(agentId)}`,
+    { operation: "Проверка на връзката за разговор" },
   );
   if (!signed.signed_url?.startsWith("wss://"))
     throw new HttpError(502, "ElevenLabs не върна връзка за разговор.");

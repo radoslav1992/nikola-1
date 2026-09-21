@@ -6,6 +6,7 @@ import {
   connectExistingAgent,
   configureAgent,
   assistantApi,
+  eleven,
 } from "../src/manage/eleven.js";
 import { adminApi } from "../src/manage/admin.js";
 import { hmac } from "../src/manage/auth.js";
@@ -126,6 +127,42 @@ test("admin connects existing agent, preserves remote content, and can disable/r
         !url.includes("/secrets") &&
         !url.includes("/phone-numbers"),
     ),
+  );
+});
+
+test("connection identifies the failed API step and never exposes upstream response bodies", async (t) => {
+  const env = {
+    DB: database(),
+    ELEVENLABS_API_KEY: "key",
+    AGENT_TOOL_SECRET: "tools",
+  };
+  t.after(() => env.DB.close());
+  t.mock.method(globalThis, "fetch", async (_url, options) =>
+    options.method === "PATCH"
+      ? new Response("PRIVATE_UPSTREAM_BODY", { status: 403 })
+      : Response.json({ agent_id: agentId }),
+  );
+  await assert.rejects(connectExistingAgent(env, agentId), (error) => {
+    assert.match(
+      error.message,
+      /Разрешаване на настройките за уеб чата \(HTTP 403\)/,
+    );
+    assert.ok(!error.message.includes("PRIVATE_UPSTREAM_BODY"));
+    return error.status === 502;
+  });
+  assert.deepEqual(await settings(env), {});
+  t.mock.method(globalThis, "fetch", async () => {
+    throw new Error("private network data");
+  });
+  await assert.rejects(
+    connectExistingAgent(env, agentId),
+    (error) =>
+      error.status === 502 &&
+      /Проверка на достъпа до агента: няма отговор/.test(error.message),
+  );
+  await assert.rejects(
+    eleven({}, "/test"),
+    (error) => error.status === 503 && /ELEVENLABS_API_KEY/.test(error.message),
   );
 });
 

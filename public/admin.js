@@ -411,7 +411,7 @@ const views = {
         ["right", "Долу вдясно"],
         ["left", "Долу вляво"],
       ],
-    )}${area("recordingNotice", "Допълнително съобщение преди разговор (BG)", s.recordingNotice, 3)}${area("recordingNoticeEn", "Допълнително съобщение преди разговор (EN)", s.recordingNoticeEn, 3)}<button>Запази настройките</button></form><div class="panel"><p>Агент: ${esc(s.agentId || "Все още не е създаден")} · ${s.configured ? "Настроен" : "Изисква прилагане"}</p><button id="configure">${s.agentManagement === "external" ? "Провери връзката и активирай" : s.agentId ? "Приложи настройките в ElevenLabs" : "Създай агента в ElevenLabs"}</button><p>${s.agentManagement === "external" ? "Гласът, моделът, инструментите, записването и телефонът се управляват в ElevenLabs. Срокът за съхранение тук се отнася за копието на разговорите в сайта." : "Този бутон настройва агента и избрания отделен телефонен номер."}</p></div><form id="connect-agent" class="panel form-grid">${field("existingAgentId", "Свържи съществуващ ElevenLabs Agent ID", s.agentId || "agent_2001m3080a0ff86r8wgj0tk9n6mr")}<p class="wide">Проверява достъпа и разрешава език, първо съобщение и текстов режим за сайта. Запазва prompt-а, гласа, инструментите, webhook-а и телефонните настройки в ElevenLabs.</p><button>Свържи съществуващ агент</button></form>`;
+    )}${area("recordingNotice", "Допълнително съобщение преди разговор (BG)", s.recordingNotice, 3)}${area("recordingNoticeEn", "Допълнително съобщение преди разговор (EN)", s.recordingNoticeEn, 3)}<button>Запази настройките</button></form><div class="panel"><p>Агент: ${esc(s.agentId || "Все още не е създаден")} · ${s.configured ? "Настроен" : "Изисква прилагане"}</p><button id="configure">${s.agentManagement === "external" ? "Провери връзката и активирай" : s.agentId ? "Приложи настройките в ElevenLabs" : "Създай агента в ElevenLabs"}</button><p>${s.agentManagement === "external" ? "Гласът, моделът, инструментите, записването и телефонът се управляват в ElevenLabs. Срокът за съхранение тук се отнася за копието на разговорите в сайта." : "Този бутон настройва агента и избрания отделен телефонен номер."}</p></div><form id="connect-agent" class="panel form-grid">${field("existingAgentId", "Свържи съществуващ ElevenLabs Agent ID", s.agentId || "agent_2001m3080a0ff86r8wgj0tk9n6mr")}<p class="wide">Проверява достъпа и разрешава език, първо съобщение и текстов режим за сайта. Запазва prompt-а, гласа, инструментите, webhook-а и телефонните настройки в ElevenLabs.</p><button type="submit">Свържи съществуващ агент</button><p id="agent-connection-status" class="wide" role="status" aria-live="polite"></p></form>`;
     $("#settings").onsubmit = action(async () => {
       const f = $("#settings"),
         data = Object.fromEntries(new FormData(f));
@@ -436,19 +436,68 @@ const views = {
         ]),
       );
     });
-    $("#connect-agent").onsubmit = action(async () => {
-      const agentId = $("#connect-agent").elements.existingAgentId.value.trim();
-      notify("Проверка на агента и свързване…");
-      await api("agent/connect", { agentId });
-      await load();
-      notify("Агентът е свързан. Текстовият и гласовият чат са активирани.");
-    });
-    $("#configure").onclick = action(async () => {
-      notify("Настройване на агента…");
-      await api("agent/configure", {});
-      await load();
-      notify("Агентът е настроен.");
-    });
+    let connecting = false;
+    const runAgentConnection = async (path, body, button) => {
+      if (connecting) return;
+      connecting = true;
+      const form = $("#connect-agent");
+      const status = $("#agent-connection-status");
+      const buttons = [
+        form.querySelector("button[type=submit]"),
+        $("#configure"),
+      ];
+      const label = button.textContent;
+      buttons.forEach((b) => (b.disabled = true));
+      button.textContent = "Свързване…";
+      button.setAttribute("aria-busy", "true");
+      status.className = "wide";
+      status.textContent =
+        "Проверка на API ключа, агента и връзката за разговор…";
+      status.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 90000);
+      try {
+        await api(path, body, "POST", controller.signal);
+        if (!form.isConnected) return;
+        await load();
+        const message =
+          "Агентът е свързан. Презаредете сайта, за да започнете текстов или гласов разговор.";
+        const current = $("#agent-connection-status");
+        if (current) {
+          current.textContent = message;
+          current.className = "wide success";
+          current.scrollIntoView({ block: "nearest", behavior: "smooth" });
+        }
+        notify(message);
+      } catch (error) {
+        if (!form.isConnected) return;
+        const message = controller.signal.aborted
+          ? "Свързването се забави. Презаредете настройките, за да проверите резултата, преди да опитате отново."
+          : error.message;
+        status.textContent = message;
+        status.className = "wide error";
+        status.scrollIntoView({ block: "nearest", behavior: "smooth" });
+        notify(message, true);
+      } finally {
+        clearTimeout(timeout);
+        connecting = false;
+        buttons.forEach((b) => (b.disabled = false));
+        button.textContent = label;
+        button.removeAttribute("aria-busy");
+      }
+    };
+    $("#connect-agent").onsubmit = (event) => {
+      event.preventDefault();
+      const form = event.currentTarget;
+      void runAgentConnection(
+        "agent/connect",
+        { agentId: form.elements.existingAgentId.value.trim() },
+        form.querySelector("button[type=submit]"),
+      );
+    };
+    $("#configure").onclick = (event) => {
+      void runAgentConnection("agent/configure", {}, event.currentTarget);
+    };
   },
   async activity() {
     const data = await api("activity");
