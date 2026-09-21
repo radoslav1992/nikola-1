@@ -74,7 +74,15 @@ test("assistant requires explicit mode selection, passes property context, shows
   $("form").dispatchEvent(new w.Event("submit", { cancelable: true }));
   await until(() => !$("[data-notice]").textContent.includes("undefined"));
   assert.equal(options, null);
-  $("[data-text]").click();
+  assert.equal(
+    $("[data-message]").hidden,
+    false,
+    "text composer is visible before starting a session",
+  );
+  assert.equal($("#assistant-input").value, "Какъв е достъпът?");
+  $("[data-message]").dispatchEvent(
+    new w.Event("submit", { cancelable: true }),
+  );
   await until(() => options);
   assert.equal(options.textOnly, true);
   assert.equal(
@@ -94,6 +102,17 @@ test("assistant requires explicit mode selection, passes property context, shows
   await until(() => options !== oldOptions && !$("[data-mute]").hidden);
   assert.equal(options.textOnly, false);
   assert.equal($("[data-voice-state]").hidden, false);
+  assert.equal(
+    $("[data-message]").hidden,
+    true,
+    "voice calls do not show a chat composer",
+  );
+  assert.equal(
+    $("[data-messages]").hidden,
+    true,
+    "voice transcript is collapsed by default",
+  );
+  assert.equal($("[data-switch-voice]").getAttribute("aria-pressed"), "true");
   options.onModeChange({ mode: "speaking" });
   assert.equal($(".assistant").classList.contains("is-speaking"), true);
   $("[data-mute]").click();
@@ -103,7 +122,7 @@ test("assistant requires explicit mode selection, passes property context, shows
   assert.match($("[data-voice-label]").textContent, /изключен/);
   oldOptions.onDisconnect();
   assert.equal(
-    $("[data-message]").hidden,
+    $("[data-voice-state]").hidden,
     false,
     "an old session must not close the new chat",
   );
@@ -112,10 +131,29 @@ test("assistant requires explicit mode selection, passes property context, shows
     message: '<img src=x onerror="alert(1)">',
   });
   assert.equal(
+    $("[data-messages]").hidden,
+    true,
+    "incoming transcript must not change the displayed mode",
+  );
+  $("[data-transcript]").click();
+  assert.equal($("[data-messages]").hidden, false);
+  assert.equal($("[data-voice-state]").hidden, false);
+  assert.equal($("[data-message]").hidden, true);
+  $("[data-transcript]").click();
+  assert.equal($("[data-messages]").hidden, true);
+  assert.equal(
     $("[data-messages] img"),
     null,
     "assistant responses remain text, never executable HTML",
   );
+  const voiceOptions = options;
+  $("[data-switch-text]").click();
+  await until(() => options !== voiceOptions && !$("[data-message]").hidden);
+  assert.equal(options.textOnly, true);
+  assert.equal($("[data-voice-state]").hidden, true);
+  assert.equal($("[data-switch-text]").getAttribute("aria-pressed"), "true");
+  voiceOptions.onDisconnect();
+  assert.equal($("[data-message]").hidden, false);
   $("[data-close]").click();
   await until(() => $("[data-voice-state]").hidden);
   dom.window.close();

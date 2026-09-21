@@ -536,3 +536,10 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 20px 0 16px; }
 @media (prefers-reduced-motion: reduce) {
   .assistant *, .assistant *::before { animation: none !important; transition: none !important; }
 }
+.assistant-switch { display: flex; gap: 5px; padding: 9px 18px; background: white; border-bottom: 1px solid #e5ece7; flex-shrink: 0; }
+.assistant-switch button { display: flex; align-items: center; justify-content: center; gap: 7px; flex: 1; background: transparent; color: #6a7b70; border: 0; border-radius: 10px; padding: 9px 6px; font-size: 12px; }
+.assistant-switch button[aria-pressed=true] { background: #e9f5ef; color: #12694f; font-weight: 600; }
+.assistant-switch svg { width: 17px; height: 17px; }
+.assistant-chat-hint { font-size: 10px; color: #728075; line-height: 1.5; margin: 7px 2px; }
+.assistant.is-voice .assistant-voice { min-height: 220px; justify-content: center; gap: 26px; }
+.assistant-voice [data-transcript] { background: transparent; border: 1px solid #cadccd; border-radius: 20px; padding: 7px 13px; font-size: 11px; color: #55705f; }

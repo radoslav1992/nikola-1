@@ -9,6 +9,7 @@ let config,
   busy = false,
   voiceMode = false,
   muted = false,
+  transcriptOpen = false,
   generation = 0,
   previousFocus;
 const root = document.createElement("div");
@@ -42,16 +43,17 @@ root.innerHTML = `
 <button class="assistant-launch" type="button" aria-controls="assistant-dialog" aria-expanded="false">${icon("chat")}<span>${txt("Попитайте асистента", "Ask the assistant")}</span><span class="assistant-ai">AI</span></button>
 <section id="assistant-dialog" class="assistant-panel" role="dialog" aria-modal="true" aria-labelledby="assistant-title" hidden>
   <header class="assistant-header"><div class="assistant-avatar" aria-hidden="true">НИ<span></span></div><div class="assistant-heading"><strong id="assistant-title">${txt("Асистент на Никола", "Nikola’s assistant")}</strong><span>${txt("Вашият ориентир сред имотите", "A little guidance. A place of your own.")}</span></div><button type="button" data-close aria-label="${txt("Затвори и приключи разговора", "Close and end conversation")}">${icon("close")}</button></header>
+  <nav data-switch class="assistant-switch" aria-label="${txt("Режим на разговор", "Conversation mode")}" hidden><button type="button" data-switch-text title="${txt("Започва нов текстов разговор", "Starts a new text conversation")}" aria-pressed="true">${icon("chat")}${txt("Текстов чат", "Text chat")}</button><button type="button" data-switch-voice title="${txt("Започва нов гласов разговор", "Starts a new voice conversation")}" aria-pressed="false">${icon("mic")}${txt("Гласов разговор", "Voice call")}</button></nav>
   <div class="assistant-scroll">
     <div data-welcome class="assistant-welcome"><span class="assistant-eyebrow">${icon("home")}${propertyId ? txt("ЗА ТОЗИ ИМОТ", "ABOUT THIS PROPERTY") : txt("НЕКА НАМЕРИМ ВАШЕТО МЯСТО", "LET’S FIND YOUR PLACE")}</span><h2>${propertyId ? txt("Какво искате да знаете?", "What would you like to know?") : txt("Добрият избор започва с разговор.", "A good choice starts with a conversation.")}</h2><p>${propertyId ? txt("Попитайте за достъпа, условията за живеене или района. Отговарям по информацията в обявата.", "Ask about access, living conditions or the area. My answers use the listing’s information.") : txt("Разкажете ми какъв имот търсите. Ще Ви помогна да разгледате възможностите.", "Tell me what you’re looking for. I’ll help you explore the possibilities.")}</p></div>
     <div data-start><div class="assistant-modes"><button type="button" data-text>${icon("chat")}<span><strong>${txt("Пишете ми", "Let’s chat")}</strong><small>${txt("Започнете текстов разговор", "Start a text conversation")}</small></span></button><button type="button" data-voice>${icon("mic")}<span><strong>${txt("Да поговорим", "Let’s talk")}</strong><small>${txt("Разговор с микрофон", "Use your microphone")}</small></span></button></div><p class="assistant-consent">${txt("Избирате как да започнете. Микрофонът се включва само при гласов разговор.", "Choose how to start. Your microphone is used only for voice conversations.")}</p></div>
-    <div data-voice-state class="assistant-voice" hidden><div class="assistant-wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div><span data-voice-label></span></div>
+    <div data-voice-state class="assistant-voice" hidden><div class="assistant-wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div><span data-voice-label></span><button type="button" data-transcript aria-expanded="false" aria-controls="assistant-transcript">${txt("Покажи разговора", "Show transcript")}</button></div>
     <p data-status role="status"></p>
-    <div data-messages class="assistant-messages" role="log" aria-label="${txt("Разговор", "Conversation")}" aria-live="polite" aria-relevant="additions text"></div>
+    <div id="assistant-transcript" data-messages class="assistant-messages" role="log" aria-label="${txt("Разговор", "Conversation")}" aria-live="polite" aria-relevant="additions text"></div>
     <div data-suggestions class="assistant-suggestions"><p>${txt("Може да започнете с…", "A place to start…")}</p>${suggestions.map((q) => `<button type="button" data-suggestion>${q}<span aria-hidden="true">↗</span></button>`).join("")}</div>
     <div data-matches></div>
   </div>
-  <div class="assistant-composer"><form data-message hidden><label class="sr-only" for="assistant-input">${txt("Съобщение", "Message")}</label><input id="assistant-input" placeholder="${txt("Попитайте за имот или район…", "Ask about a property or area…")}" maxlength="2000" required autocomplete="off"><button aria-label="${txt("Изпрати", "Send")}">${icon("arrow")}</button></form><div class="assistant-controls"><button type="button" data-mute aria-pressed="false" hidden>${icon("mic")}<span>${txt("Изключи микрофона", "Mute microphone")}</span></button><button type="button" data-end hidden>${txt("Приключи", "End chat")}</button></div><details class="assistant-privacy" open><summary>${txt("За AI асистента и разговора", "About the AI assistant and your conversation")}</summary><p data-notice></p></details></div>
+  <div class="assistant-composer"><form data-message><label class="sr-only" for="assistant-input">${txt("Съобщение", "Message")}</label><input id="assistant-input" placeholder="${txt("Попитайте за имот или район…", "Ask about a property or area…")}" maxlength="2000" required autocomplete="off"><button aria-label="${txt("Изпрати", "Send")}">${icon("arrow")}</button></form><p data-chat-hint class="assistant-chat-hint">${txt("Напишете въпрос и натиснете стрелката, за да започнете чат.", "Type a question and press send to start chatting.")}</p><div class="assistant-controls"><button type="button" data-mute aria-pressed="false" hidden>${icon("mic")}<span>${txt("Изключи микрофона", "Mute microphone")}</span></button><button type="button" data-end hidden>${txt("Приключи", "End chat")}</button></div><details class="assistant-privacy" open><summary>${txt("За AI асистента и разговора", "About the AI assistant and your conversation")}</summary><p data-notice></p></details></div>
   <footer class="assistant-footer"><a data-direct href="tel:+359884128117">${txt("Лично с Никола", "Contact Nikola")}</a><span><a data-whatsapp href="https://wa.me/359884128117" target="_blank" rel="noopener">WhatsApp</a><a data-viber href="viber://chat?number=%2B359884128117">Viber</a></span></footer>
 </section>`;
 document.body.append(root);
@@ -60,6 +62,7 @@ const $ = (s) => root.querySelector(s),
   status = $("[data-status]");
 async function post(url, body) {
   const res = await fetch(url, {
+    signal: AbortSignal.timeout(20000),
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
@@ -82,6 +85,8 @@ const ready = fetch("/api/assistant/config?lang=" + (en ? "en" : "bg"))
       "viber://chat?number=" + encodeURIComponent(c.whatsapp || c.phone);
     if (!c.enabled) {
       $("[data-start]").hidden = true;
+      $("[data-message]").hidden = true;
+      $("[data-chat-hint]").hidden = true;
       $("[data-suggestions]").hidden = true;
       status.textContent = txt(
         "Асистентът още не е активиран. Свържете се с Никола или използвайте филтрите за търсене.",
@@ -95,6 +100,8 @@ const ready = fetch("/api/assistant/config?lang=" + (en ? "en" : "bg"))
       "Assistant unavailable. Phone: +359 884 128 117",
     );
     $("[data-start]").hidden = true;
+    $("[data-message]").hidden = true;
+    $("[data-chat-hint]").hidden = true;
     $("[data-suggestions]").hidden = true;
   });
 function message(role, text) {
@@ -104,7 +111,7 @@ function message(role, text) {
   p.textContent = text;
   $("[data-welcome]").hidden = true;
   $("[data-messages]").append(p);
-  p.scrollIntoView({ block: "nearest" });
+  if (!voiceMode) p.scrollIntoView({ block: "nearest" });
 }
 function open(q = "") {
   previousFocus = document.activeElement;
@@ -117,6 +124,7 @@ function open(q = "") {
       message("user", q);
     } else {
       pending = q;
+      $("#assistant-input").value = q;
       status.textContent = txt(
         "Въпросът Ви е готов. Изберете текстов или гласов разговор.",
         "Your question is ready. Choose text or voice.",
@@ -131,11 +139,18 @@ async function end() {
   const old = session;
   session = null;
   $("[data-start]").hidden = !config?.enabled;
-  $("[data-message]").hidden = true;
+  $("[data-message]").hidden = !config?.enabled;
+  $("[data-chat-hint]").hidden = !config?.enabled;
+  $("[data-switch]").hidden = true;
   $("[data-end]").hidden = true;
+  root.classList.remove("is-voice");
   $("[data-mute]").hidden = true;
   $("[data-voice-state]").hidden = true;
   root.classList.remove("is-speaking");
+  voiceMode = false;
+  $("[data-messages]").hidden = false;
+  $("[data-message] button").disabled = false;
+  $("#assistant-input").disabled = false;
   if (old) await old.endSession().catch(() => {});
 }
 async function start(voice) {
@@ -148,12 +163,25 @@ async function start(voice) {
     busy = false;
     return;
   }
+  pending = $("#assistant-input").value.trim();
   $("[data-start]").hidden = true;
   $("[data-suggestions]").hidden = true;
   $(".assistant-privacy").open = false;
   $("[data-messages]").replaceChildren();
   $("[data-matches]").replaceChildren();
   voiceMode = voice;
+  transcriptOpen = false;
+  root.classList.toggle("is-voice", voice);
+  $("[data-messages]").hidden = voice;
+  $("[data-message]").hidden = voice;
+  $("[data-message] button").disabled = true;
+  $("#assistant-input").disabled = true;
+  $("[data-chat-hint]").hidden = true;
+  $("[data-transcript]").setAttribute("aria-expanded", "false");
+  $("[data-transcript]").textContent = txt(
+    "Покажи разговора",
+    "Show transcript",
+  );
   muted = false;
   $("[data-mute]").setAttribute("aria-pressed", "false");
   $("[data-mute] span").textContent = txt(
@@ -227,10 +255,16 @@ async function start(voice) {
       return;
     }
     session = startedSession;
-    $("[data-message]").hidden = false;
+    $("[data-message]").hidden = voice;
+    $("[data-message] button").disabled = false;
+    $("#assistant-input").disabled = false;
+    $("[data-switch]").hidden = false;
+    $("[data-switch-text]").setAttribute("aria-pressed", String(!voice));
+    $("[data-switch-voice]").setAttribute("aria-pressed", String(voice));
     $("[data-end]").hidden = false;
     $("[data-mute]").hidden = !voice;
     $("[data-voice-state]").hidden = !voice;
+    $("[data-welcome]").hidden = true;
     $("[data-voice-label]").textContent = txt("Слушам Ви…", "I’m listening…");
     status.textContent = voice
       ? txt(
@@ -242,11 +276,18 @@ async function start(voice) {
       session.sendUserMessage(pending);
       message("user", pending);
       pending = "";
+      $("#assistant-input").value = "";
     }
     if (!voice) $("#assistant-input").focus();
   } catch (e) {
     if (started !== generation) return;
-    status.textContent = e.message;
+    status.textContent =
+      e.name === "TimeoutError"
+        ? txt(
+            "Свързването отне твърде дълго. Опитайте отново — въпросът Ви е запазен в полето.",
+            "The connection timed out. Try again — your question is still in the input.",
+          )
+        : e.message;
     await end();
   } finally {
     if (started === generation) busy = false;
@@ -295,6 +336,7 @@ root.querySelectorAll("[data-suggestion]").forEach((button) => {
   button.onclick = () => {
     // Choosing an example prepares a question; starting a session is a separate choice.
     pending = button.firstChild.textContent.trim();
+    $("#assistant-input").value = pending;
     status.textContent =
       txt(
         "Изберете „Пишете ми“ или „Да поговорим“, за да изпратите: ",
@@ -303,12 +345,37 @@ root.querySelectorAll("[data-suggestion]").forEach((button) => {
     root
       .querySelectorAll("[data-suggestion]")
       .forEach((b) => b.classList.toggle("is-selected", b === button));
-    $("[data-text]").focus();
+    $("#assistant-input").focus();
   };
 });
-$("[data-message]").onsubmit = (e) => {
+$("[data-transcript]").onclick = () => {
+  transcriptOpen = !transcriptOpen;
+  $("[data-messages]").hidden = !transcriptOpen;
+  $("[data-transcript]").setAttribute("aria-expanded", String(transcriptOpen));
+  $("[data-transcript]").textContent = transcriptOpen
+    ? txt("Скрий разговора", "Hide transcript")
+    : txt("Покажи разговора", "Show transcript");
+};
+async function switchMode(voice) {
+  if (busy || (session && voiceMode === voice)) return;
+  const ending = end();
+  const stopped = generation;
+  await ending;
+  if (generation !== stopped || panel.hidden) return;
+  await start(voice);
+}
+$("[data-switch-text]").onclick = () => switchMode(false);
+$("[data-switch-voice]").onclick = () => switchMode(true);
+$("#assistant-input").oninput = () => session?.sendUserActivity();
+$("[data-message]").onsubmit = async (e) => {
   e.preventDefault();
   const input = $("#assistant-input");
+  if (busy || voiceMode || !input.value.trim()) return;
+  if (!session) {
+    pending = input.value.trim();
+    await start(false);
+    return;
+  }
   if (session && input.value.trim()) {
     session.sendUserMessage(input.value.trim());
     message("user", input.value.trim());
