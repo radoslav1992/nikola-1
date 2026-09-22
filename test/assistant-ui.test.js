@@ -41,11 +41,13 @@ test("assistant preserves a text session across messages, tool errors and minimi
     ended = false,
     micStates = [],
     sent = [],
+    contexts = [],
     requests = [];
   w.fakeSession = async (o) => {
     options = o;
     return {
       sendUserMessage: (m) => sent.push(m),
+      sendContextualUpdate: (m) => contexts.push(m),
       setMicMuted: (m) => micStates.push(m),
       endSession: async () => {
         ended = true;
@@ -64,7 +66,10 @@ test("assistant preserves a text session across messages, tool errors and minimi
     if (path.includes("/session"))
       return Response.json({
         signedUrl: "wss://signed",
-        dynamicVariables: { property_id: "101" },
+        dynamicVariables: {
+          property_id: String(JSON.parse(opt.body).propertyId),
+        },
+        propertyContext: `Current property ID: ${JSON.parse(opt.body).propertyId}`,
         firstMessage: "Здравейте",
       });
     return Response.json({ html: "<p>Публикуван имот</p>" });
@@ -85,6 +90,8 @@ test("assistant preserves a text session across messages, tool errors and minimi
   );
   await until(() => options);
   assert.equal(options.textOnly, true);
+  await until(() => contexts.length);
+  assert.equal(contexts[0], "Current property ID: 101");
   assert.equal(
     requests.find((r) => r.path.includes("/session")).body.propertyId,
     101,
@@ -188,5 +195,24 @@ test("assistant preserves a text session across messages, tool errors and minimi
   assert.equal($("[data-message]").hidden, false);
   $("[data-close]").click();
   await until(() => $("[data-voice-state]").hidden);
+  const previousOptions = options;
+  w.history.pushState({}, "", "/imot/202/ribaritsa");
+  $(".assistant-launch").click();
+  await until(() => !$("[data-start]").hidden);
+  $("#assistant-input").value = "Какъв е достъпът до този имот?";
+  $("[data-message]").dispatchEvent(
+    new w.Event("submit", { cancelable: true }),
+  );
+  await until(() => contexts.at(-1) === "Current property ID: 202");
+  assert.notEqual(options, previousOptions);
+  assert.equal(options.dynamicVariables.property_id, "202");
+  assert.equal(
+    requests.filter((r) => r.path.includes("/session")).at(-1).body.propertyId,
+    202,
+  );
+  assert.ok(!$("[data-messages]").textContent.includes("асфалтов път"));
+  ended = false;
+  w.dispatchEvent(new w.Event("pagehide"));
+  await until(() => ended);
   dom.window.close();
 });

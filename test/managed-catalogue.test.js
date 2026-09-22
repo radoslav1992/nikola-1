@@ -78,9 +78,10 @@ test("publication errors list only the missing requirements and drafts remain sa
     e.DB.close();
   }
 });
-test("source prices update without overwriting curated content; stale editor rejected; incomplete import never withdraws", async () => {
+test("legacy sync rows update without overwriting curated content; stale editor rejected; incomplete import never withdraws", async () => {
   const e = env(),
     p = await publish(e);
+  await e.DB.prepare("UPDATE properties SET sync_price=1,sync_status=1 WHERE id=101").run();
   await importCatalogue(e, {
     items: [{ ...source, price: 47000, title: "Changed source" }],
     total: 1,

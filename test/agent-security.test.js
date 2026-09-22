@@ -229,11 +229,19 @@ test("browser gets only signed URL and published page context, secrets stay serv
     ),
     (x) => x.status === 400,
   );
+  await assert.rejects(
+    assistantApi(
+      req("/api/assistant/session", { consent: true, propertyId: 999 }),
+      e,
+      "/api/assistant/session",
+    ),
+    (x) => x.status === 404,
+  );
   const data = await (
     await assistantApi(
       req("/api/assistant/session", {
         consent: true,
-        propertyId: 999,
+        propertyId: null,
         lang: "en",
         pagePath: "/raion/sevlievo",
       }),
@@ -245,6 +253,27 @@ test("browser gets only signed URL and published page context, secrets stay serv
   assert.equal(data.dynamicVariables.page_path, "/raion/sevlievo");
   assert.ok(!JSON.stringify(data).includes("test-api-secret"));
   assert.ok(data.firstMessage.includes("transcribed"));
+  await importCatalogue(e, { items: [source], total: 1 });
+  await saveProperty(e, 101, {
+    content,
+    publication: "published",
+    version: (await getProperty(e, 101)).version,
+  });
+  const propertySession = await (
+    await assistantApi(
+      req("/api/assistant/session", {
+        consent: true,
+        propertyId: 101,
+        pagePath: "/imot/999/wrong",
+      }),
+      e,
+      "/api/assistant/session",
+    )
+  ).json();
+  assert.equal(propertySession.dynamicVariables.property_id, "101");
+  assert.match(propertySession.dynamicVariables.page_path, /^\/imot\/101\//);
+  assert.match(propertySession.propertyContext, /property_id=101/);
+  assert.ok(!propertySession.propertyContext.includes("999"));
 });
 test("phone setup refuses to reassign another agent’s number before any remote mutation", async (t) => {
   const e = await env();

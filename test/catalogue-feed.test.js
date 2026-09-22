@@ -42,7 +42,7 @@ test("public feeds export full curated content, escape HTML/XML, and never leak 
   assert.equal(data.total, 1);
   const item = data.items[0];
   assert.equal(item.id, 101);
-  assert.equal(item.price_eur, 50000);
+  assert.equal(item.price_eur, 45000);
   assert.equal(item.description, content.description + '\n<&"\u0001');
   assert.equal(item.facts.access.text, "Асфалтов път");
   assert.equal(item.facts.water, undefined);
@@ -104,8 +104,10 @@ test("public feeds export full curated content, escape HTML/XML, and never leak 
   );
   assert.equal(await (await call("/agent/catalog", "bg", "HEAD")).text(), "");
   // Price changes and unpublishing must be reflected on the very next fetch.
-  await env.DB.prepare("UPDATE properties SET source_json=? WHERE id=101")
-    .bind(JSON.stringify({ ...source, price: 49000 }))
+  await env.DB.prepare(
+    "UPDATE properties SET content_json=json_set(content_json,'$.price',?) WHERE id=101",
+  )
+    .bind(49000)
     .run();
   assert.equal(
     (await (await call("/feeds/properties/101.json")).json()).price_eur,

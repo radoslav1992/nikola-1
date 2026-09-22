@@ -475,12 +475,20 @@ export async function assistantApi(request, env, path) {
     throw new HttpError(400, "Потвърдете началото на разговора.");
   const data = await publicCatalogue(env, b.lang === "en" ? "en" : "bg"),
     listing = data.items.find((l) => l.id === Number(b.propertyId));
+  if (b.propertyId != null && !listing)
+    throw new HttpError(
+      404,
+      "Имотът вече не е публикуван. Отворете каталога отново.",
+    );
   const signed = await eleven(
     env,
     `/convai/conversation/get-signed-url?agent_id=${encodeURIComponent(s.agentId)}`,
   );
   return json({
     signedUrl: signed.signed_url,
+    propertyContext: listing
+      ? `The current website property ID is ${listing.id}. This is the default subject of questions about this property. Call get_property with property_id=${listing.id} before answering. Do not answer using a previously discussed property unless the visitor explicitly asks about it.`
+      : "The visitor is browsing the general catalogue. No specific property is selected on this page.",
     dynamicVariables: {
       property_id: listing ? String(listing.id) : "",
       page_path: listing

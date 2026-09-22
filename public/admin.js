@@ -189,13 +189,13 @@ const views = {
   async properties() {
     const { items } = await api("properties");
     $("#content").innerHTML =
-      `<div class="toolbar"><button id="new-property">Нов имот</button><button class="quiet" id="sync">Обнови от SUPRIMMO</button><input id="find" placeholder="Заглавие, място или номер"><select id="state"><option value="">Всички</option value="published">Публикувани</option value="draft">Чернови</option value="archived">Архив</option value="review">За преглед</option></select></div><p>${items.filter((i) => i.publication === "published").length} публикувани · ${items.length} общо. Новите импорти остават чернови, докато ги прегледате и публикувате.</p><div id="property-list"></div>`;
+      `<div class="toolbar"><button id="new-property">Нов имот</button><button class="quiet" id="cleanup-imports">Почисти импортнатите чернови</button><input id="find" placeholder="Заглавие, място или номер"><select id="state"><option value="">Всички</option value="published">Публикувани</option value="draft">Чернови</option value="archived">Архив</option value="review">За преглед</option></select></div><p>${items.filter((i) => i.publication === "published").length} публикувани · ${items.length} общо. Самостоятелен каталог. Вие управлявате съдържанието, цените и наличността. Архивът е достъпен от филтъра.</p><div id="property-list"></div>`;
     const draw = () => {
       const q = $("#find").value.toLocaleLowerCase(),
         state = $("#state").value;
       const rows = items.filter(
         (p) =>
-          (!state ||
+          ((!state && p.publication !== "archived") ||
             (state === "review" ? p.needs_review : p.publication === state)) &&
           `${p.id} ${p.content.title} ${p.content.place}`
             .toLocaleLowerCase()
@@ -223,13 +223,30 @@ const views = {
       const p = await api("properties", { content: {} });
       await editProperty(p.id);
     });
-    $("#sync").onclick = action(async () => {
-      notify("Обновяване на цени и наличност…");
-      const d = await api("sync", {});
-      await load();
-      notify(
-        `Обновени ${d.count} имота.${d.failedPages?.length ? " Непълен импорт — наличността не е променена." : ""}`,
-      );
+    $("#cleanup-imports").onclick = action(async () => {
+      const preview = await api("catalogue/cleanup");
+      if (!preview.candidates.length) {
+        notify("Няма непроменяни импортнати чернови за почистване.");
+        return;
+      }
+      $("#property-list").innerHTML =
+        `<div class="panel"><h2>Преглед преди почистване</h2><p>Ще преместим ${preview.candidates.length} непроменяни импортнати чернови в архива. Остават ${preview.preserved} собствени, редактирани или публикувани имота. Данните и снимките се запазват.</p>${table(
+          ["ID", "Заглавие"],
+          preview.candidates.map((p) => [esc(p.id), esc(p.title)]),
+        )}<div class="toolbar"><button id="confirm-cleanup">Архивирай тези чернови</button><button id="cancel-cleanup" class="quiet">Отказ</button></div></div>`;
+      $("#cancel-cleanup").onclick = draw;
+      $("#confirm-cleanup").onclick = action(async () => {
+        const result = await api("catalogue/cleanup", {
+          candidates: preview.candidates.map(({ id, version }) => ({
+            id,
+            version,
+          })),
+        });
+        await load();
+        notify(
+          `Архивирани ${result.archived} непроменяни чернови. Работата по останалите имоти е запазена.`,
+        );
+      });
     });
   },
   async regions() {
@@ -521,7 +538,7 @@ async function editProperty(id) {
     { items: regions } = await api("regions");
   $("#title").textContent = "Редакция на имот";
   $("#content").innerHTML =
-    `<div class="toolbar"><button id="back" class="quiet">← Към имотите</button><button data-note="${id}" data-kind="property" class="quiet">Лични бележки</button><a href="/imot/${id}" target="_blank" rel="noopener">Публична страница</a>${editor.source_id ? '<button type="button" id="import-detail" class="quiet">Зареди заглавие, описание и снимки от SUPRIMMO</button>' : ""}</div><p class="muted">За публикуване са нужни заглавие и пълно описание на BG и EN, тип, действително населено място, снимка и двете отметки за преглед в края. Можете да запазвате незавършен имот като „Чернова“.</p><form id="property" class="form-grid panel"><h2 class="wide">Публикация и наличност</h2>${select(
+    `<div class="toolbar"><button id="back" class="quiet">← Към имотите</button><button data-note="${id}" data-kind="property" class="quiet">Лични бележки</button><a href="/imot/${id}" target="_blank" rel="noopener">Публична страница</a></div><p class="muted">За публикуване са нужни заглавие и пълно описание на BG и EN, тип, действително населено място, снимка и двете отметки за преглед в края. Можете да запазвате незавършен имот като „Чернова“.</p><form id="property" class="form-grid panel"><h2 class="wide">Публикация и наличност</h2>${select(
       "publication",
       "Публикация",
       editor.publication,
@@ -531,7 +548,7 @@ async function editProperty(id) {
       "Наличност",
       editor.status,
       ["active", "reserved", "sold", "withdrawn"].map((s) => [s, states[s]]),
-    )}${check("sync_price", "Обновявай цената от SUPRIMMO", editor.sync_price && editor.source_id)}${check("sync_status", "Следи наличността в SUPRIMMO", editor.sync_status && editor.source_id)}<p class="wide muted">Източник: ${esc(editor.source_id || "Собствен имот")} · Последна синхронизация: ${time(editor.synced_at)} · Цена при източника: ${esc(editor.source.price ?? "—")} €. При две пълни проверки без обявата тя се сваля автоматично, ако следенето е включено.</p>${field("title", "Заглавие (BG)", c.title)}${field("titleEn", "Заглавие (EN)", c.titleEn)}${field("type", "Тип (напр. Къща)", c.type)}${field("place", "Действително населено място", c.place)}${field("region", "Област", c.region)}${select("regionKey", "Район на сайта", c.regionKey || "", [["", "Избери район"], ...regions.map((r) => [r.key, r.name.bg])])}${field("price", "Собствена цена (€)", c.price, "number")}${field("area", "Площ (м²)", c.area, "number")}${field("plotArea", "Двор / парцел (м²)", c.plotArea, "number")}${field("bedrooms", "Спални", c.bedrooms, "number")}${field("floors", "Етажи", c.floors, "number")}${check("rent", "Под наем", c.rent)}${area("description", "Пълно описание (BG)", c.description, 12)}${area("descriptionEn", "Пълно описание (EN)", c.descriptionEn, 12)}<div class="wide toolbar"><button type="button" id="translate" class="quiet">Подготви английски превод</button><span id="translation-status" role="status" aria-live="polite"></span></div><h2 class="wide">Снимки</h2><div id="images" class="wide images"></div><label class="wide">Добави снимки (JPEG, PNG, WebP до 8 MB)<input id="upload" type="file" accept="image/jpeg,image/png,image/webp" multiple></label><h2 class="wide">Проверени отговори за купувачите</h2><p class="wide">Само отговори с посочен източник и дата на проверката се показват на сайта и агента.</p>${Object.entries(
+    )}<p class="wide muted">Самостоятелен имот. Цената и наличността се управляват ръчно.</p>${field("title", "Заглавие (BG)", c.title)}${field("titleEn", "Заглавие (EN)", c.titleEn)}${field("type", "Тип (напр. Къща)", c.type)}${field("place", "Действително населено място", c.place)}${field("region", "Област", c.region)}${select("regionKey", "Район на сайта", c.regionKey || "", [["", "Избери район"], ...regions.map((r) => [r.key, r.name.bg])])}${field("price", "Цена (€)", c.price, "number")}${field("area", "Площ (м²)", c.area, "number")}${field("plotArea", "Двор / парцел (м²)", c.plotArea, "number")}${field("bedrooms", "Спални", c.bedrooms, "number")}${field("floors", "Етажи", c.floors, "number")}${check("rent", "Под наем", c.rent)}${area("description", "Пълно описание (BG)", c.description, 12)}${area("descriptionEn", "Пълно описание (EN)", c.descriptionEn, 12)}<div class="wide toolbar"><button type="button" id="translate" class="quiet">Подготви английски превод</button><span id="translation-status" role="status" aria-live="polite"></span></div><h2 class="wide">Снимки</h2><div id="images" class="wide images"></div><label class="wide">Добави снимки (JPEG, PNG, WebP до 8 MB)<input id="upload" type="file" accept="image/jpeg,image/png,image/webp" multiple></label><h2 class="wide">Проверени отговори за купувачите</h2><p class="wide">Само отговори с посочен източник и дата на проверката се показват на сайта и агента.</p>${Object.entries(
       {
         access: "Достъп до имота",
         yearRound: "Целогодишно живеене",
@@ -672,39 +689,6 @@ async function editProperty(id) {
       button.removeAttribute("aria-busy");
     }
   };
-  if ($("#import-detail"))
-    $("#import-detail").onclick = action(async () => {
-      if (
-        (f.elements.description.value || images.length) &&
-        !confirm(
-          "Да заредя ли описание и снимки от източника в редактора? Записът ще остане непроменен, докато не натиснете „Запази“.",
-        )
-      )
-        return;
-      notify("Извличане на описание и снимки…");
-      const d = await api(`properties/${id}/detail`, {});
-      if (!f.elements.title.value.trim())
-        f.elements.title.value = d.title || "";
-      if (d.description) f.elements.description.value = d.description;
-      const importedImages = [];
-      for (const image of d.images) {
-        notify(
-          `Копиране на снимка ${importedImages.length + 1} от ${d.images.length}…`,
-        );
-        importedImages.push(
-          d.mirrorAvailable
-            ? (await api(`properties/${id}/mirror`, { image })).url
-            : image,
-        );
-      }
-      if (importedImages.length) images = importedImages;
-      drawImages();
-      notify(
-        d.mirrorAvailable
-          ? "Снимките са копирани в собственото хранилище. Прегледайте описанието."
-          : "Заредено. За собствено съхранение на снимките е нужно R2.",
-      );
-    });
   f.onsubmit = async (e) => {
     e.preventDefault();
     const button = f.querySelector("button[type=submit]");
@@ -756,8 +740,8 @@ async function editProperty(id) {
           content,
           publication: data.publication,
           status: data.status,
-          sync_price: f.elements.sync_price.checked,
-          sync_status: f.elements.sync_status.checked,
+          sync_price: false,
+          sync_status: false,
           version: editor.version,
         },
         "PUT",

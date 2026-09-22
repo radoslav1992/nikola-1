@@ -1,8 +1,10 @@
 import { Conversation } from "@elevenlabs/client";
 const en = document.documentElement.lang === "en";
 const txt = (bg, eng) => (en ? eng : bg);
-const propertyId =
+const currentPropertyId = () =>
   Number(location.pathname.match(/\/imot\/(\d+)/)?.[1]) || null;
+const propertyId = currentPropertyId();
+let sessionPropertyId = propertyId;
 let config,
   session,
   pending = "",
@@ -113,7 +115,8 @@ function message(role, text) {
   $("[data-messages]").append(p);
   if (!voiceMode) p.scrollIntoView({ block: "nearest" });
 }
-function open(q = "") {
+async function open(q = "") {
+  if (sessionPropertyId !== currentPropertyId()) await end();
   previousFocus = document.activeElement;
   panel.hidden = false;
   root.classList.add("is-open");
@@ -160,6 +163,7 @@ async function end() {
 async function start(voice) {
   if (busy || session) return;
   busy = true;
+  sessionPropertyId = currentPropertyId();
   const started = ++generation;
   await ready;
   if (started !== generation) return;
@@ -202,7 +206,7 @@ async function start(voice) {
   try {
     const c = await post("/api/assistant/session", {
       lang: en ? "en" : "bg",
-      propertyId,
+      propertyId: sessionPropertyId,
       pagePath: location.pathname,
       consent: true,
     });
@@ -274,6 +278,7 @@ async function start(voice) {
       return;
     }
     session = startedSession;
+    if (c.propertyContext) session.sendContextualUpdate(c.propertyContext);
     $("[data-message]").hidden = voice;
     $("[data-message] button").disabled = false;
     $("#assistant-input").disabled = false;
@@ -392,6 +397,7 @@ $("[data-message]").onsubmit = async (e) => {
   e.preventDefault();
   const input = $("#assistant-input");
   if (busy || voiceMode || !input.value.trim()) return;
+  if (sessionPropertyId !== currentPropertyId()) await end();
   if (!session) {
     pending = input.value.trim();
     await start(false);
@@ -403,6 +409,11 @@ $("[data-message]").onsubmit = async (e) => {
     input.value = "";
   }
 };
+// Stop a page's session before navigation, including back/forward-cache restores.
+window.addEventListener("pagehide", () => {
+  pending = "";
+  void end();
+});
 panel.addEventListener("keydown", (e) => {
   if (e.key === "Escape") $("[data-close]").click();
   if (e.key === "Tab") {

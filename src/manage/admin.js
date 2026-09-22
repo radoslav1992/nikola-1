@@ -22,6 +22,7 @@ import {
 import { createSlot, cancelAppointment, icsCalendar } from "./calendar.js";
 import { translateProperty } from "./translation.js";
 import { uploadImage } from "./media.js";
+import { standalonePreview, archiveImportedDrafts } from "./standalone.js";
 import { fetchDetail, IMAGE_BASE } from "../scraper.js";
 import {
   configureAgent,
@@ -53,6 +54,16 @@ export async function adminApi(request, env, ctx, refresh) {
   if (path === "/api/admin/logout" && request.method === "POST")
     return logout();
   if (path === "/api/admin/session") return json({ ok: true });
+  if (path === "/api/admin/catalogue/cleanup") {
+    if (request.method === "GET") return json(await standalonePreview(env));
+    if (request.method === "POST")
+      return json(
+        await archiveImportedDrafts(
+          env,
+          (await bodyJSON(request, 100000)).candidates,
+        ),
+      );
+  }
   if (path === "/api/admin/properties") {
     if (request.method === "GET") {
       const rows = await env.DB.prepare(
@@ -67,6 +78,11 @@ export async function adminApi(request, env, ctx, refresh) {
     /^\/api\/admin\/properties\/(\d+)(?:\/(detail|translate|upload|mirror))?$/,
   );
   if (prop) {
+    if (["detail", "mirror"].includes(prop[2]))
+      throw new HttpError(
+        410,
+        "Каталогът е самостоятелен. Добавете собствено съдържание и снимки.",
+      );
     const propertyId = Number(prop[1]),
       row = await getProperty(env, propertyId);
     if (!row) throw new HttpError(404, "Имотът не е намерен.");
@@ -121,12 +137,10 @@ export async function adminApi(request, env, ctx, refresh) {
       return json(await translateProperty(env, await bodyJSON(request)));
   }
   if (path === "/api/admin/sync" && request.method === "POST") {
-    const data = await refresh(env);
-    return json({
-      ok: true,
-      count: data.items.length,
-      failedPages: data.failedPages || [],
-    });
+    throw new HttpError(
+      410,
+      "Синхронизацията е изключена. Цените и наличността се редактират ръчно.",
+    );
   }
   if (path === "/api/admin/activity") {
     return json({

@@ -93,6 +93,8 @@ function geoCache(env) {
  * refreshes stay offline so they finish within the Worker's background time budget.
  */
 export async function refreshListings(env, { log = console.log, network = false } = {}) {
+  // The managed catalogue is independent. Legacy refresh URLs cannot re-import listings.
+  if (env.DB) return publicCatalogue(env);
   if (inflight) return inflight;
   inflight = (async () => {
     const previous = await readListings(env);

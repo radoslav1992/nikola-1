@@ -52,7 +52,7 @@ export default {
 
   async scheduled(event, env, ctx) {
     if (env.DB) ctx.waitUntil(syncConversations(env).catch(() => cleanup(env)));
-    ctx.waitUntil(
+    if (!env.DB) ctx.waitUntil(
       refreshListings(env, { network: true }).then(
         (d) => console.log(`cron: refreshed ${d.items.length} listings`),
         (e) => console.error('cron: refresh failed', e && e.message),

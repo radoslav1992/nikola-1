@@ -151,10 +151,14 @@ export async function getProperty(env, propertyId) {
     .first();
 }
 export function editorProperty(row) {
+  const content = parse(row.content_json);
+  // Preserve the last displayed price when a formerly synced property is edited.
+  if (row.sync_price && row.source_id)
+    content.price = parse(row.source_json).price ?? null;
   return {
     ...row,
     source: parse(row.source_json),
-    content: parse(row.content_json),
+    content,
     source_json: undefined,
     content_json: undefined,
   };
@@ -197,7 +201,7 @@ export async function saveProperty(env, propertyId, body) {
   }
   const propertyKey =
     previous?.id || Math.floor(Date.now() * 1000 + Math.random() * 1000);
-  const syncedPrice = previous?.source_id && Boolean(body.sync_price) ? 1 : 0;
+  const syncedPrice = 0;
   if (previous) {
     const result = await env.DB.prepare(
       "UPDATE properties SET content_json=?,publication=?,status=?,sync_price=?,sync_status=?,needs_review=0,version=version+1,updated_at=? WHERE id=? AND version=?",
@@ -207,7 +211,7 @@ export async function saveProperty(env, propertyId, body) {
         publication,
         status,
         syncedPrice,
-        body.sync_status ? 1 : 0,
+        0,
         now(),
         propertyKey,
         Number(body.version),

@@ -18,7 +18,7 @@ const tick = async (fn) => {
   }
   throw Error("UI did not reach expected state");
 };
-test("source import fills missing title for review and preserves a broker-written title", async (t) => {
+test("standalone editor removes import controls and keeps manual editing and translation", async (t) => {
   const env = {
     DB: database(),
     ADMIN_SESSION_SECRET: "secret",
@@ -28,15 +28,6 @@ test("source import fills missing title for review and preserves a broker-writte
   await importCatalogue(env, { items: [{ ...source, title: "" }], total: 1 });
   const expiry = Date.now() + 3600000;
   const cookie = `ni_admin=${expiry}.nonce.${await hmac("secret", `${expiry}.nonce.hash`)}`;
-  t.mock.method(
-    globalThis,
-    "fetch",
-    async () =>
-      new Response(
-        "<html><h1>Къща от източника</h1><h2>Описание</h2><p>Пълно описание на имота с подробности за площта, двора и разпределението. Това е информация за преглед от брокера преди публикуване.</p><footer></footer></html>",
-        { headers: { "content-type": "text/html; charset=utf-8" } },
-      ),
-  );
   const dom = new JSDOM(await adminPage().text(), {
     url: "https://niimoti.com/admin",
     runScripts: "outside-only",
@@ -57,20 +48,17 @@ test("source import fills missing title for review and preserves a broker-writte
   w.eval(readFileSync(new URL("../public/admin.js", import.meta.url), "utf8"));
   const $ = (s) => w.document.querySelector(s);
   await tick(() => $('[data-edit="101"]'));
+  assert.equal($("#sync"), null);
+  $("#cleanup-imports").click();
+  await tick(() => $("#confirm-cleanup"));
+  assert.equal((await getProperty(env, 101)).publication, "draft");
+  $("#cancel-cleanup").click();
   $('[data-edit="101"]').click();
-  await tick(() => $("#import-detail"));
-  $("#import-detail").click();
-  await tick(
-    () =>
-      $("[name=title]").value === "Къща от източника" &&
-      !$("#import-detail").disabled,
-  );
-  assert.ok($("[name=description]").value.includes("Пълно описание"));
-  assert.equal(parse((await getProperty(env, 101)).content_json).title, "");
+  await tick(() => $("[name=title]"));
+  assert.equal($("#import-detail"), null);
+  assert.equal($("[name=sync_price]"), null);
   $("[name=title]").value = "Мое заглавие";
-  $("#import-detail").click();
-  await tick(() => !$("#import-detail").disabled);
-  assert.equal($("[name=title]").value, "Мое заглавие");
+  $("[name=description]").value = "Пълно описание на имота за превод.";
   // Translation must show progress and failures beside the button, not only
   // in the page header that is offscreen when editing a long listing.
   let finishTranslation;
