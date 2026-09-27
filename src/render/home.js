@@ -137,7 +137,7 @@ ${reviewsSection(lang, testimonials, { limit: 3 })}
   <div class="trust">
     <div class="trust-item"><span class="ico">${raw(ICON_EYE)}</span><h3>${t.trust1t}</h3><p>${t.trust1}</p></div>
     <div class="trust-item"><span class="ico">${raw(ICON_DOC)}</span><h3>${t.trust2t}</h3><p>${t.trust2}</p></div>
-    <div class="trust-item"><span class="ico">${raw(ICON_GLOBE)}</span><h3>${t.trust3t}</h3><p>${t.trust3}</p></div>
+    <div class="trust-item"><span class="ico">${raw(ICON_CHAT)}</span><h3>${t.trust3t}</h3><p>${t.trust3}</p></div>
   </div>
 </section>
 
@@ -148,7 +148,6 @@ ${reviewsSection(lang, testimonials, { limit: 3 })}
       <p class="lead-sm">${t.contactSub}</p>
       <ul class="contact-list">
         <li><a href="${telHref(AGENT.mobile)}"><span class="ico">${raw(ICON_PHONE)}</span>${AGENT.mobile}</a></li>
-        <li><a href="${telHref(AGENT.office)}"><span class="ico">${raw(ICON_PHONE)}</span>${AGENT.office} <span class="muted">(${lang === 'en' ? 'office' : 'офис'})</span></a></li>
         <li><a href="${waLink()}" target="_blank" rel="noopener"><span class="ico">WA</span>WhatsApp ${AGENT.whatsapp}</a></li>
         <li><a href="${viberLink()}"><span class="ico">VB</span>Viber</a></li>
         <li><a href="${AGENT.mapsUrl}" target="_blank" rel="noopener"><span class="ico">${raw(ICON_PIN)}</span>${AGENT.address[lang]}</a></li>
@@ -168,8 +167,8 @@ ${reviewsSection(lang, testimonials, { limit: 3 })}
       image: (env?.SITE_URL || `https://${SITE.domain}`) + '/img/agent.jpg',
       telephone: AGENT.mobile,
       address: { '@type': 'PostalAddress', streetAddress: 'ул. Никола Пиколо 23', addressLocality: 'Велико Търново', postalCode: '5000', addressCountry: 'BG' },
-      areaServed: ['Велико Търново', 'Габрово', 'Севлиево', 'Априлци', 'Ловеч', 'Тетевен', 'Павликени'],
-      knowsLanguage: ['bg', 'en', 'es'],
+      areaServed: ['Велико Търново', 'Габрово', 'Севлиево', 'Априлци', 'Ловеч', 'Тетевен', 'Троян', 'Трявна', 'Павликени'],
+      knowsLanguage: ['bg', 'es'],
     },
   ];
 
@@ -178,6 +177,6 @@ ${reviewsSection(lang, testimonials, { limit: 3 })}
 
 const ICON_EYE = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
 const ICON_DOC = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M9 13h6M9 17h6"/></svg>';
-const ICON_GLOBE = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>';
+const ICON_CHAT = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5 9 9 0 0 1-4-.9L3 21l1.9-5.5a9 9 0 0 1-.9-4A8.5 8.5 0 0 1 12.5 3H13a8.5 8.5 0 0 1 8 8v.5z"/><path d="m9 11 2 2 4-4"/></svg>';
 const ICON_PHONE = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg>';
 const ICON_PIN = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s7-6.5 7-12a7 7 0 1 0-14 0c0 5.5 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg>';

@@ -83,7 +83,6 @@ export function agentCard(lang, { listing = null, compact = false } = {}) {
       <a class="btn btn-outline" href="${waLink(waText)}" target="_blank" rel="noopener">WhatsApp</a>
       <a class="btn btn-outline" href="${viberLink()}">Viber</a>
     </div>
-    <a class="muted small center" href="${telHref(AGENT.office)}">${lang === 'en' ? 'Office' : 'Офис'}: ${AGENT.office}</a>
   </div>
   <hr>
   ${contactForm(lang, { listing, compact: true })}
