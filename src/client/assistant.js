@@ -211,6 +211,13 @@ async function start(voice) {
       consent: true,
     });
     if (started !== generation) return;
+    // Show the configured greeting before any queued question, even when the
+    // text-only transport delays its first agent event until the user speaks.
+    // Keep the server's first-message override so its conversation has the same
+    // opening; only suppress the matching echo in our local transcript.
+    const normalizeGreeting = (text) => String(text || "").trim().replace(/\s+/g, " ");
+    let greetingEcho = !voice ? normalizeGreeting(c.firstMessage) : "";
+    if (greetingEcho) message("agent", c.firstMessage);
     const startedSession = await Conversation.startSession({
       signedUrl: c.signedUrl,
       connectionType: "websocket",
@@ -236,8 +243,13 @@ async function start(voice) {
         },
       },
       onMessage: (m) => {
-        if (started === generation)
-          message(m.source === "user" ? "user" : "agent", m.message);
+        if (started !== generation) return;
+        if (m.source !== "user" && greetingEcho) {
+          const isGreeting = normalizeGreeting(m.message) === greetingEcho;
+          greetingEcho = "";
+          if (isGreeting) return;
+        }
+        message(m.source === "user" ? "user" : "agent", m.message);
       },
       onModeChange: ({ mode }) => {
         if (started !== generation || !voice) return;

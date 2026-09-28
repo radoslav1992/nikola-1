@@ -447,8 +447,12 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 20px 0 16px; }
 /* The catalogue remains primary; the assistant is an optional conversation. */
 .search-panel { display: flex; flex-direction: column; }
 .search-panel > .ai-search { order: -1; }
-.classic-search { margin-top: 24px; }
-.classic-search > summary { cursor: pointer; font-weight: 600; padding: 14px 0; }
+.classic-search { padding: 20px 28px 26px; border-top: 1px solid var(--line); }
+.classic-search > summary { cursor: pointer; font-weight: 600; padding: 8px 0; }
+.classic-search > form { margin-top: 16px; }
+@media (max-width: 820px) {
+  .classic-search { padding: 16px 20px 20px; }
+}
 .assistant { position: fixed; right: 24px; bottom: 24px; z-index: 1100; --chat-green: #12694f; --chat-ink: #163b30; }
 .assistant-left { right: auto; left: 24px; }
 .assistant [hidden] { display: none !important; }

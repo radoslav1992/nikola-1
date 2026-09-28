@@ -98,6 +98,13 @@ test("assistant preserves a text session across messages, tool errors and minimi
   );
   await until(() => sent.length);
   assert.deepEqual(sent, ["Какъв е достъпът?"]);
+  assert.deepEqual(
+    [...$("[data-messages]").children].map((el) => el.textContent),
+    ["Здравейте", "Какъв е достъпът?"],
+    "the greeting must precede a question submitted before connection",
+  );
+  options.onMessage({ source: "ai", message: "  Здравейте\n" });
+  assert.equal($("[data-messages]").children.length, 2, "late greeting is not duplicated");
   const textOptions = options;
   options.onMessage({ source: "ai", message: "Достъпът е по асфалтов път." });
   $("#assistant-input").value = "А има ли вода?";
@@ -140,6 +147,7 @@ test("assistant preserves a text session across messages, tool errors and minimi
   $("[data-voice]").click();
   await until(() => options !== oldOptions && !$("[data-mute]").hidden);
   assert.equal(options.textOnly, false);
+  assert.equal($("[data-messages]").children.length, 0, "voice waits for actual transcript events");
   assert.equal($("[data-voice-state]").hidden, false);
   assert.equal(
     $("[data-message]").hidden,
@@ -216,3 +224,52 @@ test("assistant preserves a text session across messages, tool errors and minimi
   await until(() => ended);
   dom.window.close();
 });
+
+for (const lang of ["bg", "en"]) {
+  test(`text chat shows its ${lang} greeting without a user message, before connection completes`, async () => {
+    const dom = new JSDOM(`<html lang="${lang}"><body></body></html>`, {
+      url: "https://niimoti.com/", runScripts: "outside-only",
+    });
+    const w = dom.window;
+    w.HTMLElement.prototype.scrollIntoView = () => {};
+    const greeting = lang === "bg" ? "Здравейте! Как мога да Ви помогна?" : "Hello! How can I help?";
+    let options, connect;
+    const sent = [];
+    w.fakeSession = (o) => {
+      options = o;
+      return new Promise((resolve) => {
+        connect = () => resolve({
+          sendUserMessage: (text) => sent.push(text),
+          endSession: async () => {},
+        });
+      });
+    };
+    w.fetch = async (path) => Response.json(path.includes("/config")
+      ? { enabled: true, notice: "Notice", phone: "+359884128117" }
+      : { signedUrl: "wss://signed", firstMessage: greeting });
+    w.eval(bundle.outputFiles[0].text);
+    const $ = (selector) => w.document.querySelector(selector);
+    $(".assistant-launch").click();
+    $("[data-text]").click();
+    await until(() => options);
+    assert.equal($("[data-messages]").firstChild.textContent, greeting);
+    assert.equal($("#assistant-input").disabled, true);
+    assert.deepEqual(sent, []);
+    // Some transports echo immediately; others wait until after the user sends.
+    options.onMessage({ source: "ai", message: greeting });
+    assert.equal($("[data-messages]").children.length, 1);
+    connect();
+    await until(() => !$("#assistant-input").disabled);
+    $("#assistant-input").value = "House under 50000 euros";
+    $("[data-message]").dispatchEvent(new w.Event("submit", { cancelable: true }));
+    options.onMessage({ source: "ai", message: "Here are the matching houses." });
+    assert.deepEqual(sent, ["House under 50000 euros"]);
+    assert.deepEqual([...$("[data-messages]").children].map((el) => el.textContent),
+      [greeting, "House under 50000 euros", "Here are the matching houses."]);
+    $("[data-close]").click();
+    $(".assistant-launch").click();
+    assert.equal($("[data-messages]").children.length, 3, "reopening retains history without another greeting");
+    $("[data-end]").click();
+    dom.window.close();
+  });
+}
