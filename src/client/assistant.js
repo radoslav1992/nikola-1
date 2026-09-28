@@ -114,6 +114,7 @@ function message(role, text) {
   $("[data-welcome]").hidden = true;
   $("[data-messages]").append(p);
   if (!voiceMode) p.scrollIntoView({ block: "nearest" });
+  return p;
 }
 async function open(q = "") {
   if (sessionPropertyId !== currentPropertyId()) await end();
@@ -138,6 +139,10 @@ async function open(q = "") {
 }
 async function end() {
   generation++;
+  root.querySelectorAll(".is-streaming").forEach((p) => {
+    p.classList.remove("is-streaming");
+    p.removeAttribute("aria-busy");
+  });
   busy = false;
   const old = session;
   session = null;
@@ -217,7 +222,42 @@ async function start(voice) {
     // opening; only suppress the matching echo in our local transcript.
     const normalizeGreeting = (text) => String(text || "").trim().replace(/\s+/g, " ");
     let greetingEcho = !voice ? normalizeGreeting(c.firstMessage) : "";
-    if (greetingEcho) message("agent", c.firstMessage);
+    const greetingNode = greetingEcho ? message("agent", c.firstMessage) : null;
+    // The SDK currently forwards event_id on final messages, while newer
+    // streaming events also carry response_id. Keep both to reconcile the final
+    // authoritative text with its existing bubble, including tool follow-ups.
+    const replies = [];
+    const replyFor = (event, partial = false) => {
+      let reply = event.response_id
+        ? replies.find((r) => r.responseId === event.response_id)
+        : null;
+      if (!reply && !partial && event.event_id == null)
+        reply = replies.find((r) => !r.committed);
+      if (!reply) {
+        const candidates = replies.filter((r) => r.eventId === event.event_id);
+        reply = candidates.find((r) => !r.committed && (!partial || !r.responseId));
+        if (!reply && !event.response_id) reply = candidates.at(-1);
+        if (!reply && partial && event.response_id)
+          reply = candidates.find((r) => r.committed && !r.responseId);
+      }
+      if (!reply) {
+        reply = { eventId: event.event_id, text: "", committed: false };
+        replies.push(reply);
+      }
+      if (event.response_id) reply.responseId = event.response_id;
+      return reply;
+    };
+    const renderReply = (reply, streaming) => {
+      // Hold only a possible greeting echo; display real answers immediately
+      // once their text diverges from the greeting already shown above.
+      if (!reply.text || (greetingEcho && greetingEcho.startsWith(normalizeGreeting(reply.text)))) return;
+      reply.node ||= message("agent", reply.text);
+      reply.node.textContent = reply.text;
+      reply.node.classList.toggle("is-streaming", streaming);
+      if (streaming) reply.node.setAttribute("aria-busy", "true");
+      else reply.node.removeAttribute("aria-busy");
+      reply.node.scrollIntoView({ block: "nearest" });
+    };
     const startedSession = await Conversation.startSession({
       signedUrl: c.signedUrl,
       connectionType: "websocket",
@@ -244,12 +284,34 @@ async function start(voice) {
       },
       onMessage: (m) => {
         if (started !== generation) return;
-        if (m.source !== "user" && greetingEcho) {
+        if (voice || m.source === "user") {
+          message(m.source === "user" ? "user" : "agent", m.message);
+          return;
+        }
+        // Without an ID and without a pending stream, this is a new legacy
+        // full-message event, even if its wording repeats an earlier answer.
+        const reply = m.event_id == null && !replies.some((r) => !r.committed)
+          ? { text: "" } : replyFor(m);
+        reply.committed = true;
+        reply.text = m.message;
+        if (greetingEcho) {
           const isGreeting = normalizeGreeting(m.message) === greetingEcho;
           greetingEcho = "";
-          if (isGreeting) return;
+          if (isGreeting) {
+            reply.node?.remove();
+            reply.node = greetingNode;
+            return;
+          }
         }
-        message(m.source === "user" ? "user" : "agent", m.message);
+        renderReply(reply, false);
+      },
+      onAgentChatResponsePart: (part) => {
+        if (started !== generation || voice) return;
+        if (!["start", "delta", "stop"].includes(part.type)) return;
+        const reply = replyFor(part, true);
+        if (reply.committed) return;
+        if (part.type === "delta") reply.text += part.text || "";
+        renderReply(reply, part.type !== "stop");
       },
       onModeChange: ({ mode }) => {
         if (started !== generation || !voice) return;

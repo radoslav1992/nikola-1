@@ -496,6 +496,7 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 20px 0 16px; }
 .assistant-messages { display: flex; flex-direction: column; gap: 14px; }
 .assistant-messages p { padding: 14px 16px; border-radius: 17px 17px 17px 4px; background: #fff; border: 1px solid #e5ebe4; color: #354b3e; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; line-height: 1.75; max-width: 92%; box-shadow: 0 2px 5px #1d3d2903; }
 .assistant-messages .from-user { background: #12694f; color: #fff; border-color: #12694f; margin-left: auto; border-radius: 17px 17px 4px 17px; }
+.assistant-messages .is-streaming::after { content: ""; display: inline-block; width: 3px; height: 1em; margin-left: 4px; vertical-align: -0.12em; border-radius: 2px; background: #12694f; }
 .assistant-panel [data-matches]:not(:empty) { margin-top: 18px; }
 .assistant-panel [data-matches] .grid { grid-template-columns: 1fr; }
 .assistant-composer { flex-shrink: 0; border-top: 1px solid #e5ece5; background: white; padding: 12px 18px 10px; }

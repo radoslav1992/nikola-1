@@ -273,3 +273,85 @@ for (const lang of ["bg", "en"]) {
     dom.window.close();
   });
 }
+
+test("text replies stream in place, reconcile final text and ignore stale or voice chunks", async () => {
+  const dom = new JSDOM('<html lang="bg"><body></body></html>', {
+    url: "https://niimoti.com/", runScripts: "outside-only",
+  });
+  const w = dom.window;
+  w.HTMLElement.prototype.scrollIntoView = () => {};
+  let options;
+  w.fakeSession = async (o) => {
+    options = o;
+    return { sendUserMessage() {}, endSession: async () => {} };
+  };
+  w.fetch = async (path) => Response.json(path.includes("/config")
+    ? { enabled: true, notice: "Notice", phone: "+359884128117" }
+    : { signedUrl: "wss://signed", firstMessage: "Здравейте!" });
+  w.eval(bundle.outputFiles[0].text);
+  const $ = (s) => w.document.querySelector(s);
+  const texts = () => [...$("[data-messages]").children].map((p) => p.textContent);
+  $(".assistant-launch").click();
+  $("[data-text]").click();
+  await until(() => options && !$("#assistant-input").disabled);
+  const part = (type, text, event_id = 2, response_id = "answer") =>
+    options.onAgentChatResponsePart({ type, text, event_id, response_id });
+  part("start", "", 1, "greeting");
+  part("delta", "Здрав", 1, "greeting");
+  part("delta", "ейте!", 1, "greeting");
+  part("stop", "", 1, "greeting");
+  assert.deepEqual(texts(), ["Здравейте!"], "streamed greeting does not duplicate the immediate greeting");
+  options.onMessage({ source: "ai", message: "Здравейте!", event_id: 1 });
+  part("start", "");
+  part("delta", "Има къща ");
+  const bubble = $("[data-messages]").lastChild;
+  assert.equal(bubble.textContent, "Има къща ", "text is visible before completion");
+  assert.equal(bubble.getAttribute("aria-busy"), "true");
+  part("delta", "на 35 км.");
+  assert.equal($("[data-messages]").lastChild, bubble);
+  assert.equal(bubble.textContent, "Има къща на 35 км.");
+  part("stop", "");
+  assert.equal(bubble.hasAttribute("aria-busy"), false);
+  options.onMessage({ source: "ai", message: "Има къща на около 35 км.", event_id: 2 });
+  assert.equal(bubble.textContent, "Има къща на около 35 км.", "final text is authoritative");
+  assert.equal(texts().length, 2);
+  part("delta", "late duplicate");
+  assert.equal(texts().length, 2);
+  assert.equal(bubble.textContent, "Има къща на около 35 км.");
+  // Multiple response IDs can share a turn's event_id after a tool call.
+  part("start", "", 2, "follow-up");
+  part("delta", "Цена: 30500 евро.", 2, "follow-up");
+  part("stop", "", 2, "follow-up");
+  options.onMessage({ source: "ai", message: "Цена: 30 500 евро.", event_id: 2 });
+  assert.deepEqual(texts().slice(1), ["Има къща на около 35 км.", "Цена: 30 500 евро."]);
+  // SDK versions without response_id still expose event_id.
+  options.onAgentChatResponsePart({ type: "delta", text: '<img src=x onerror="alert(1)">', event_id: 3 });
+  assert.equal($("[data-messages] img"), null);
+  options.onMessage({ source: "ai", message: "Безопасен текст", event_id: 3 });
+  assert.equal(texts().at(-1), "Безопасен текст");
+  // Full-message fallback remains available when the provider buffers a reply.
+  options.onMessage({ source: "ai", message: "Проверявам.", event_id: 4 });
+  part("start", "", 4, "already-final");
+  part("delta", "Проверявам.", 4, "already-final");
+  assert.equal(texts().filter((t) => t === "Проверявам.").length, 1);
+  options.onMessage({ source: "ai", message: "Проверявам.", event_id: 5 });
+  assert.equal(texts().filter((t) => t === "Проверявам.").length, 2, "identical replies in different turns are retained");
+  part("delta", "Незавършен отговор", 6, "unfinished");
+  assert.ok($(".is-streaming"));
+  const old = options;
+  $("[data-end]").click();
+  assert.equal($(".is-streaming"), null);
+  const before = texts();
+  old.onAgentChatResponsePart({ type: "delta", text: "stale", event_id: 6 });
+  assert.deepEqual(texts(), before);
+  $("[data-voice]").click();
+  await until(() => options !== old && !$("[data-voice-state]").hidden);
+  options.onAgentChatResponsePart({ type: "delta", text: "voice partial", event_id: 7 });
+  assert.deepEqual(texts(), []);
+  options.onMessage({ source: "ai", message: "Voice transcript", event_id: 7 });
+  assert.deepEqual(texts(), ["Voice transcript"]);
+  assert.equal($("[data-messages]").hidden, true);
+  assert.equal($("[data-message]").hidden, true);
+  $("[data-end]").click();
+  dom.window.close();
+});
