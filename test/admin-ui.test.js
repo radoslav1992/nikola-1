@@ -214,3 +214,45 @@ test("broker UI creates and saves a property, edits knowledge, manages slots and
   assert.equal($("#agent-connection-status").className, "wide error");
   dom.window.close();
 });
+test("property status filter reaches archived and review records", async (t) => {
+  const env = {
+    DB: database(),
+    ADMIN_SESSION_SECRET: "secret",
+    ADMIN_PASSWORD_HASH: "hash",
+  };
+  t.after(() => env.DB.close());
+  await importCatalogue(env, { items: [source], total: 1 });
+  await env.DB.prepare(
+    "UPDATE properties SET publication='archived' WHERE id=101",
+  ).run();
+  const expiry = Date.now() + 3600000;
+  const cookie = `ni_admin=${expiry}.nonce.${await hmac("secret", `${expiry}.nonce.hash`)}`;
+  const dom = new JSDOM(await adminPage().text(), {
+    url: "https://niimoti.com/admin",
+    runScripts: "outside-only",
+  });
+  t.after(() => dom.window.close());
+  const w = dom.window;
+  w.AbortController = globalThis.AbortController;
+  w.fetch = async (path, opt = {}) =>
+    adminApi(
+      new Request(new URL(path, w.location.href), {
+        ...opt,
+        headers: { ...opt.headers, cookie, origin: "https://niimoti.com" },
+      }),
+      env,
+      {},
+    );
+  w.eval(readFileSync(new URL("../public/admin.js", import.meta.url), "utf8"));
+  const $ = (s) => w.document.querySelector(s);
+  await tick(() => $("#property-list"));
+  assert.deepEqual(
+    [...$("#state").options].map((o) => o.value),
+    ["", "published", "draft", "archived", "review"],
+  );
+  // Archived records are hidden by default and reachable through the filter.
+  assert.equal($('[data-edit="101"]'), null);
+  $("#state").value = "archived";
+  $("#state").dispatchEvent(new w.Event("change"));
+  assert.ok($('[data-edit="101"]'));
+});

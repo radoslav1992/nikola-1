@@ -189,7 +189,7 @@ const views = {
   async properties() {
     const { items } = await api("properties");
     $("#content").innerHTML =
-      `<div class="toolbar"><button id="new-property">Нов имот</button><button class="quiet" id="cleanup-imports">Почисти импортнатите чернови</button><input id="find" placeholder="Заглавие, място или номер"><select id="state"><option value="">Всички</option value="published">Публикувани</option value="draft">Чернови</option value="archived">Архив</option value="review">За преглед</option></select></div><p>${items.filter((i) => i.publication === "published").length} публикувани · ${items.length} общо. Самостоятелен каталог. Вие управлявате съдържанието, цените и наличността. Архивът е достъпен от филтъра.</p><div id="property-list"></div>`;
+      `<div class="toolbar"><button id="new-property">Нов имот</button><button class="quiet" id="cleanup-imports">Почисти импортнатите чернови</button><input id="find" placeholder="Заглавие, място или номер"><select id="state"><option value="">Всички</option><option value="published">Публикувани</option><option value="draft">Чернови</option><option value="archived">Архив</option><option value="review">За преглед</option></select></div><p>${items.filter((i) => i.publication === "published").length} публикувани · ${items.length} общо. Самостоятелен каталог. Вие управлявате съдържанието, цените и наличността. Архивът е достъпен от филтъра.</p><div id="property-list"></div>`;
     const draw = () => {
       const q = $("#find").value.toLocaleLowerCase(),
         state = $("#state").value;

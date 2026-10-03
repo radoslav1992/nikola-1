@@ -1,7 +1,7 @@
 import { buyerFacts } from '../knowledge.js';
 import { html, raw } from './html.js';
 import { T, SITE, typeLabel, placeLabel, regionLabel, fmtPrice, fmtArea, fmtNumber } from './i18n.js';
-import { page, href } from './layout.js';
+import { page, href, assistantEnabled } from './layout.js';
 import { cardGrid, agentCard, imgUrl, listingPath } from './components.js';
 import { similarTo, townOf } from '../catalog.js';
 
@@ -59,7 +59,7 @@ export function renderProperty({ lang, data, listing: l, detail, env }) {
   <div class="prop-content">
     <div>
       <div class="status-row">
-        <span class="chip chip-green">${l.rent ? t.statusRent : t.status}</span>
+        ${l.status === 'reserved' ? html`<span class="chip chip-dark">${t.statusReserved}</span>` : html`<span class="chip chip-green">${l.rent ? t.statusRent : t.status}</span>`}
         <span class="muted">${t.ref} <b>${l.ref}</b></span>
       </div>
       <h1>${l.title}</h1>
@@ -104,17 +104,16 @@ export function renderProperty({ lang, data, listing: l, detail, env }) {
       <dl class="buyer-facts-grid">${(l.managed ? ['access','yearRound','amenities','nearestTown'].map(k=>l.facts?.[k]||{}) : buyerFacts(l.id, lang)).map((f, i) => html`<div><dt>${t.aiChips[i]}</dt><dd>${f.text || t.factUnknown}${f.text ? html`<small>${t.factSource}: ${f.source} · ${t.factReviewed}: ${f.reviewedAt}</small>` : ''}</dd></div>`)}</dl>
     </section>
 
-    <div class="ai-box">
+    ${assistantEnabled(env) ? html`<div class="ai-box">
       <div class="label-kicker"><span class="dot"></span>${t.aiKicker}</div>
       <h2>${t.aiTitle}</h2>
       <p class="muted">${t.aiSub}</p>
-      <form class="ai-form" ${env?.DB ? 'data-agent-ask' : 'data-ai-ask'} data-lang="${lang}" data-listing="${l.id}">
+      <form class="ai-form" data-agent-ask data-lang="${lang}" data-listing="${l.id}">
         <label class="sr-only" for="property-question">${t.aiTitle}</label><input id="property-question" name="q" placeholder="${t.aiPhProp}" maxlength="400" required>
         <button type="submit" class="btn btn-primary">${t.aiAsk}</button>
       </form>
       <div class="chips chips-sm">${t.aiChips.map((c) => html`<button type="button" class="pill" data-ai-chip>${c}</button>`)}</div>
-      <div class="ai-result" aria-live="polite" aria-busy="false" hidden></div>
-    </div>
+    </div>` : ''}
   </div>
 
   <aside class="prop-aside" id="contact">
@@ -145,7 +144,7 @@ ${similar.length ? html`<section class="wrap section">
       url: site + href(lang, listingPath(l)),
       image: images.slice(0, 5).map((f) => site + imgUrl(f, 'big')),
       description: paragraphs[0] || `${l.type}, ${l.place}, ${l.region}`,
-      offers: { '@type': 'Offer', price: l.price, priceCurrency: 'EUR', availability: 'https://schema.org/InStock', businessFunction: l.rent ? 'http://purl.org/goodrelations/v1#LeaseOut' : 'http://purl.org/goodrelations/v1#Sell' },
+      offers: { '@type': 'Offer', price: l.price, priceCurrency: 'EUR', availability: l.status === 'reserved' ? 'https://schema.org/Reserved' : 'https://schema.org/InStock', businessFunction: l.rent ? 'http://purl.org/goodrelations/v1#LeaseOut' : 'http://purl.org/goodrelations/v1#Sell' },
       address: { '@type': 'PostalAddress', addressLocality: town, addressRegion: l.region, addressCountry: 'BG' },
     },
   ];

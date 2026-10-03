@@ -33,6 +33,11 @@ const NAV = [
   ['navContact', '/#contact'],
 ];
 
+// The website assistant is live only with a connected, enabled ElevenLabs agent.
+// Pages use this to load the widget and to route the AI boxes to it or to a fallback.
+export const assistantEnabled = (env, s = env?.SITE_SETTINGS || {}) =>
+  Boolean(env?.DB && env.ELEVENLABS_API_KEY && s.agentId && s.agentEnabled && s.configured);
+
 const LEAFLET_HEAD = '<link rel="stylesheet" href="/vendor/leaflet/leaflet.css"><script src="/vendor/leaflet/leaflet.js" defer></script>';
 
 export function page({ lang = 'bg', title, description, path = '/', body, jsonLd = [], image, updatedAt, env, noindex = false, pageClass = '', leaflet = false }) {
@@ -64,8 +69,8 @@ ${noindex ? raw('<meta name="robots" content="noindex">') : ''}
 <meta property="og:locale" content="${lang === 'en' ? 'en_GB' : 'bg_BG'}">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#FFFFFF">
-<link rel="icon" href="/brand/my-balkan-place.png" type="image/png">
-<link rel="apple-touch-icon" href="/brand/my-balkan-place.png">
+<link rel="icon" href="/brand/icon-64.png" type="image/png" sizes="64x64">
+<link rel="apple-touch-icon" href="/brand/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -81,7 +86,7 @@ ${body}
 ${footer(lang, updatedAt)}
 ${mobileBar(lang)}
 <script src="/app.js" defer></script>
-${env?.DB ? raw('<script src="/assistant.js" defer></script>') : ''}
+${assistantEnabled(env) ? raw('<script src="/assistant.js" defer></script>') : ''}
 </body>
 </html>`;
   let rendered=toString(doc);
@@ -92,7 +97,7 @@ ${env?.DB ? raw('<script src="/assistant.js" defer></script>') : ''}
 }
 
 function brandLogo(lang) {
-  return html`<img class="brand-logo" src="/brand/my-balkan-place.png" width="56" height="56" alt="">
+  return html`<img class="brand-logo" src="/brand/logo-112.png" width="56" height="56" alt="">
     <span class="brand-wordmark"><span class="brand-name">My Balkan Place</span><span class="brand-byline">${AGENT.name[lang]}</span></span>`;
 }
 
@@ -152,7 +157,7 @@ function mobileBar(lang) {
   <a href="${telHref(AGENT.mobile)}">${t.barCall}</a>
   <a href="${waLink()}" rel="noopener" target="_blank">WhatsApp</a>
   <a href="${viberLink()}">Viber</a>
-  <a href="#contact" class="primary" data-scroll-contact>${t.barEnquire}</a>
+  <a href="${href(lang, '/#contact')}" class="primary" data-scroll-contact>${t.barEnquire}</a>
 </div>`;
 }
 

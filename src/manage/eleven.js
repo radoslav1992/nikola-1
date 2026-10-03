@@ -19,6 +19,7 @@ import { hmac, equal } from "./auth.js";
 import { availableSlots, book } from "./calendar.js";
 import { applyFilters, parseFilters } from "../catalog.js";
 import { cardGrid, listingPath } from "../render/components.js";
+import { assistantEnabled } from "../render/layout.js";
 import { toString } from "../render/html.js";
 
 export async function eleven(
@@ -437,13 +438,7 @@ export async function assistantApi(request, env, path) {
     lang = new URL(request.url).searchParams.get("lang") === "en" ? "en" : "bg";
   if (path === "/api/assistant/config")
     return json({
-      enabled: Boolean(
-        env.DB &&
-        env.ELEVENLABS_API_KEY &&
-        s.agentId &&
-        s.agentEnabled &&
-        s.configured,
-      ),
+      enabled: assistantEnabled(env, s),
       notice: notice(s, lang),
       position: s.widgetPosition || "right",
       phone: s.phone || "+359884128117",
@@ -469,7 +464,7 @@ export async function assistantApi(request, env, path) {
   }
   if (path !== "/api/assistant/session")
     throw new HttpError(404, "Непозната операция.");
-  if (!s.agentEnabled || !s.configured || !s.agentId)
+  if (!assistantEnabled(env, s))
     throw new HttpError(503, "Асистентът още не е активиран.");
   if (b.consent !== true)
     throw new HttpError(400, "Потвърдете началото на разговора.");
@@ -480,10 +475,22 @@ export async function assistantApi(request, env, path) {
       404,
       "Имотът вече не е публикуван. Отворете каталога отново.",
     );
-  const signed = await eleven(
-    env,
-    `/convai/conversation/get-signed-url?agent_id=${encodeURIComponent(s.agentId)}`,
-  );
+  let signed;
+  try {
+    signed = await eleven(
+      env,
+      `/convai/conversation/get-signed-url?agent_id=${encodeURIComponent(s.agentId)}`,
+    );
+  } catch (e) {
+    // The detailed ElevenLabs message is written for the admin; keep it in the logs.
+    console.error("Assistant session failed:", e?.message);
+    throw new HttpError(
+      502,
+      b.lang === "en"
+        ? "The assistant is temporarily unavailable. Please try again or contact Nikola."
+        : "Асистентът е временно недостъпен. Опитайте отново или се свържете с Никола.",
+    );
+  }
   return json({
     signedUrl: signed.signed_url,
     propertyContext: listing

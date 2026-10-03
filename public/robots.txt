@@ -1,5 +1,4 @@
 User-agent: *
 Allow: /
 Disallow: /api/
-Disallow: /img/
 Sitemap: https://mybalkanplace.com/sitemap.xml
