@@ -2,4 +2,4 @@ User-agent: *
 Allow: /
 Disallow: /api/
 Disallow: /img/
-Sitemap: https://niimoti.com/sitemap.xml
+Sitemap: https://mybalkanplace.com/sitemap.xml

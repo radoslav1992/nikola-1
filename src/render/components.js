@@ -66,8 +66,8 @@ export function cardGrid(items, lang, opts = {}) {
 export function agentCard(lang, { listing = null, compact = false } = {}) {
   const t = T[lang];
   const waText = listing
-    ? (lang === 'en' ? `Hello, I am interested in property ${listing.ref} (${listing.title}) — niimoti.com` : `Здравейте, интересувам се от имот ${listing.ref} (${listing.title}) — niimoti.com`)
-    : (lang === 'en' ? 'Hello, I found you on niimoti.com' : 'Здравейте, намерих ви в niimoti.com');
+    ? (lang === 'en' ? `Hello, I am interested in property ${listing.ref} (${listing.title}) — mybalkanplace.com` : `Здравейте, интересувам се от имот ${listing.ref} (${listing.title}) — mybalkanplace.com`)
+    : (lang === 'en' ? 'Hello, I found you on mybalkanplace.com' : 'Здравейте, намерих ви в mybalkanplace.com');
   return html`<div class="panel agent-card">
   <div class="agent-head">
     <img class="avatar" src="/img/agent.jpg" alt="${AGENT.name[lang]}" width="64" height="64" loading="lazy">

@@ -22,16 +22,16 @@ export const AGENT = {
 };
 
 export const SITE = {
-  name: 'НИ Имоти',
-  nameLatin: 'NI Imoti',
-  domain: 'niimoti.com',
+  name: 'My Balkan Place',
+  nameLatin: 'My Balkan Place',
+  domain: 'mybalkanplace.com',
 };
 
 export const T = {
   bg: {
     sellerLink: 'Предложете имот', sellerTitle: 'Имате имот за продажба?', sellerSub: 'Разкажете накратко за имота и оставете контакт. Никола ще се свърже с вас, за да обсъдите следващите стъпки.', sellerLocation: 'Къде се намира имотът?', sellerType: 'Вид на имота', sellerMessage: 'Площ, състояние, желана цена и друга полезна информация', sellerSend: 'Изпрати предложение', regionFilter: 'Район', anyRegion: 'Всички райони', regionBrowse: 'Разгледайте района', aiCriteria: 'Насочете търсенето', aiHint: 'Изберете район, бюджет и вид имот или опишете свободно какво търсите.', aiExamples: ['Къща до 50 000 евро близо до Севлиево', 'Парцел близо до Габрово', 'Къща в Априлци'], buyerFactsTitle: 'Полезно за купувача', factUnknown: 'Няма потвърдена информация. Попитайте Никола.', factSource: 'Източник', factReviewed: 'Проверено',
     brandTag: 'Недвижими имоти', navProps: 'Имоти', navRegions: 'Региони', navReduced: 'Намалени', navAbout: 'За Никола', navContact: 'Контакт',
-    metaHome: 'НИ Имоти — къщи, парцели и имоти в Централна Стара планина и Северна България. Лични консултации от Никола Иванов, Велико Търново.',
+    metaHome: 'My Balkan Place — къщи, парцели и имоти в Централна Стара планина и Северна България. Лични консултации от Никола Иванов, Велико Търново.',
     heroKicker: 'Имоти в Стара планина и Северна България',
     heroTitle: 'Открийте своето място в България',
     heroSub: 'Селски къщи, имоти с двор, парцели и възможности за инвестиция — подбрани с лично отношение и познаване на района около Велико Търново, Габрово, Севлиево и Априлци.',
@@ -80,7 +80,7 @@ export const T = {
   en: {
     sellerLink: 'Offer a property', sellerTitle: 'Have a property to sell?', sellerSub: 'Tell us a little about your property and leave your contact details. Nikola will get in touch to discuss the next steps.', sellerLocation: 'Where is the property?', sellerType: 'Property type', sellerMessage: 'Size, condition, asking price and other useful information', sellerSend: 'Send property details', regionFilter: 'Area', anyRegion: 'All areas', regionBrowse: 'Explore this area', aiCriteria: 'Guide your search', aiHint: 'Choose an area, budget and property type, or describe what you are looking for.', aiExamples: ['House under 50 000 euros near Sevlievo', 'Plot near Gabrovo', 'House in Apriltsi'], buyerFactsTitle: 'Useful information for buyers', factUnknown: 'No confirmed information yet. Please ask Nikola.', factSource: 'Source', factReviewed: 'Reviewed',
     brandTag: 'Real estate', navProps: 'Properties', navRegions: 'Regions', navReduced: 'Reduced', navAbout: 'About Nikola', navContact: 'Contact',
-    metaHome: 'NI Imoti — houses, plots and property in the central Balkan Mountains and northern Bulgaria. Personal guidance from Nikola Ivanov, Veliko Tarnovo.',
+    metaHome: 'My Balkan Place — houses, plots and property in the central Balkan Mountains and northern Bulgaria. Personal guidance from Nikola Ivanov, Veliko Tarnovo.',
     heroKicker: 'Properties in the Balkan Mountains and northern Bulgaria',
     heroTitle: 'Find your place in Bulgaria',
     heroSub: 'Village houses, homes with gardens, plots and investment opportunities — selected with personal care and local knowledge of the Veliko Tarnovo, Gabrovo, Sevlievo and Apriltsi area.',

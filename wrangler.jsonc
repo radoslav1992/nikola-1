@@ -1,5 +1,5 @@
 /**
- * НИ Имоти — Cloudflare Worker configuration.
+ * My Balkan Place — Cloudflare Worker configuration.
  *
  * Deployed through the Cloudflare console → Workers & Pages → Create → Import a repository.
  * Cloudflare reads this file on every push; anything you set here is the source of truth.
@@ -34,7 +34,7 @@
   // Variables you may edit. `keep_vars` keeps anything you add in the dashboard on redeploys.
   "keep_vars": true,
   "vars": {
-    "SITE_URL": "https://niimoti.com",
+    "SITE_URL": "https://mybalkanplace.com",
     "REFRESH_HOURS": "6"
   },
 
@@ -66,13 +66,9 @@
   //   { "binding": "LISTINGS", "id": "PASTE_KV_NAMESPACE_ID_HERE" }
   // ],
 
-  /* ── OPTIONAL: custom domain ───────────────────────────────────────────────────────
-   * Easiest: dashboard → your Worker → Settings → Domains & Routes → Add → Custom domain
-   * → niimoti.com (and again for www.niimoti.com). The domain must be in your Cloudflare account.
-   * Or uncomment below once the zone niimoti.com is active in Cloudflare:
-   */
-  // "routes": [
-  //   { "pattern": "niimoti.com", "custom_domain": true },
-  //   { "pattern": "www.niimoti.com", "custom_domain": true }
-  // ]
+  // Production hostnames. The mybalkanplace.com zone must be active in this account.
+  "routes": [
+    { "pattern": "mybalkanplace.com", "custom_domain": true },
+    { "pattern": "www.mybalkanplace.com", "custom_domain": true }
+  ]
 }

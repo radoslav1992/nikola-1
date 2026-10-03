@@ -165,6 +165,7 @@ ${reviewsSection(lang, testimonials, { limit: 3 })}
       alternateName: SITE.nameLatin,
       url: (env?.SITE_URL || `https://${SITE.domain}`) + href(lang, '/'),
       image: (env?.SITE_URL || `https://${SITE.domain}`) + '/img/agent.jpg',
+      logo: (env?.SITE_URL || `https://${SITE.domain}`) + '/brand/my-balkan-place.png',
       telephone: AGENT.mobile,
       address: { '@type': 'PostalAddress', streetAddress: 'ул. Никола Пиколо 23', addressLocality: 'Велико Търново', postalCode: '5000', addressCountry: 'BG' },
       areaServed: ['Велико Търново', 'Габрово', 'Севлиево', 'Априлци', 'Ловеч', 'Тетевен', 'Троян', 'Трявна', 'Павликени'],

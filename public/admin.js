@@ -105,7 +105,7 @@ function table(head, rows) {
 }
 function login() {
   root.innerHTML =
-    '<main class="login"><h1>НИ Имоти</h1><p>Вход за управление на имотите и разговорите.</p><form id="login"><label>Парола<input name="password" type="password" required autocomplete="current-password"></label><button>Вход</button></form><p id="status" role="status"></p><a href="/">Към сайта</a></main>';
+    '<main class="login"><h1>My Balkan Place</h1><p>Вход за управление на имотите и разговорите.</p><form id="login"><label>Парола<input name="password" type="password" required autocomplete="current-password"></label><button>Вход</button></form><p id="status" role="status"></p><a href="/">Към сайта</a></main>';
   $("#login").onsubmit = action(async () => {
     await api("login", {
       password: $("#login").elements.namedItem("password").value,
@@ -115,7 +115,7 @@ function login() {
   });
 }
 function shell() {
-  root.innerHTML = `<header class="top"><a href="/">НИ Имоти</a><span>Работно пространство на Никола</span><button id="logout" class="quiet">Изход</button></header><div class="workspace"><nav aria-label="Управление">${Object.entries(
+  root.innerHTML = `<header class="top"><a href="/">My Balkan Place</a><span>Работно пространство на Никола</span><button id="logout" class="quiet">Изход</button></header><div class="workspace"><nav aria-label="Управление">${Object.entries(
     labels,
   )
     .map(([k, v]) => `<button data-tab="${k}">${v}</button>`)

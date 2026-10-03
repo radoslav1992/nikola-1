@@ -50,7 +50,7 @@ export function regionCoords(region) {
 /* ───────── Nominatim (only called from the cron, ≤1 req/s per their usage policy) ───────── */
 
 const NOMINATIM = 'https://nominatim.openstreetmap.org/search';
-const GEO_UA = 'niimoti.com listings map (contact: via site form)';
+const GEO_UA = 'mybalkanplace.com listings map (contact: via site form)';
 
 export async function geocodePlace(place, region, fetchImpl = fetch) {
   const town = townOf(place);

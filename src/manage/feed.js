@@ -167,7 +167,7 @@ export async function catalogueFeed(request, env, path, lang = "bg") {
     return reply(
       `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:ni="urn:ni-imoti:property"><channel>
-<title>НИ Имоти — ${lang === "en" ? "Property catalogue" : "Каталог с имоти"}</title><link>${xml(origin + prefix + "/agent/catalog")}</link><description>${xml(note[lang])}</description><language>${lang}</language><lastBuildDate>${new Date(generatedAt).toUTCString()}</lastBuildDate>
+<title>My Balkan Place — ${lang === "en" ? "Property catalogue" : "Каталог с имоти"}</title><link>${xml(origin + prefix + "/agent/catalog")}</link><description>${xml(note[lang])}</description><language>${lang}</language><lastBuildDate>${new Date(generatedAt).toUTCString()}</lastBuildDate>
 ${items.map((item) => `<item><guid isPermaLink="false">urn:ni-imoti:property:${item.id}</guid><title>${xml(item.title)}</title><link>${xml(item.url)}</link><description>${xml(description(item, lang))}</description><ni:id>${item.id}</ni:id><ni:location>${xml(item.location.settlement)}</ni:location><ni:status>${xml(item.status)}</ni:status>${item.price_eur == null ? "" : `<ni:price currency="EUR">${xml(item.price_eur)}</ni:price>`}<ni:details>${xml(item.details_url)}</ni:details><ni:updated>${xml(item.updated_at)}</ni:updated></item>`).join("\n")}
 </channel></rss>`,
       "application/rss+xml",
@@ -175,8 +175,8 @@ ${items.map((item) => `<item><guid isPermaLink="false">urn:ni-imoti:property:${i
   }
   const title =
     lang === "en"
-      ? "NI Imoti — property catalogue"
-      : "НИ Имоти — каталог с имоти";
+      ? "My Balkan Place — property catalogue"
+      : "My Balkan Place — каталог с имоти";
   return reply(
     `<!doctype html><html lang="${lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title><link rel="alternate" type="application/rss+xml" href="${prefix}/feeds/properties.xml"><link rel="alternate" type="application/json" href="${prefix}/feeds/properties.json"><style>body{font:16px/1.65 system-ui,sans-serif;color:#203a30;max-width:880px;margin:auto;padding:32px 20px;background:#fafcf9}header,article{padding:24px;background:white;border:1px solid #dde7df;border-radius:16px;margin-bottom:20px}h1,h2{line-height:1.25}a{color:#12694f}pre{white-space:pre-wrap;font:inherit;overflow-wrap:anywhere}dt{font-weight:600}dd{margin:0 0 8px}nav{display:flex;gap:20px;flex-wrap:wrap}</style></head><body><header><h1>${title}</h1><p>${esc(note[lang])}</p><p>${lang === "en" ? "Properties" : "Имоти"}: ${items.length} · ${esc(generatedAt)}</p><nav><a href="${prefix}/feeds/properties.json">JSON</a><a href="${prefix}/feeds/properties.xml">RSS</a><a href="${lang === "en" ? "" : "/en"}/agent/catalog">${lang === "en" ? "Български" : "English"}</a></nav></header><main>
 ${

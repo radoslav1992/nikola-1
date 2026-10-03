@@ -1,4 +1,4 @@
-/* НИ Имоти — clean & bright redesign */
+/* My Balkan Place — clean & bright redesign */
 :root {
   --bg: #FFFFFF;
   --bg-2: #F5F7F8;
@@ -549,3 +549,30 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 20px 0 16px; }
 .assistant-chat-hint { font-size: 10px; color: #728075; line-height: 1.5; margin: 7px 2px; }
 .assistant.is-voice .assistant-voice { min-height: 220px; justify-content: center; gap: 26px; }
 .assistant-voice [data-transcript] { background: transparent; border: 1px solid #cadccd; border-radius: 20px; padding: 7px 13px; font-size: 11px; color: #55705f; }
+
+/* My Balkan Place: transparent mountain/home mark and accessible live wordmark. */
+.brand { flex-shrink: 0; gap: 8px; }
+.brand-logo { display: block; width: 56px; height: 56px; object-fit: contain; flex: 0 0 auto; }
+.brand-wordmark { display: flex; flex-direction: column; gap: 4px; }
+.brand-name, .site-footer .brand-name { font-size: 17px; font-weight: 800; line-height: 1.15; letter-spacing: -.04em; white-space: nowrap; color: #174c3d; }
+.brand-byline { font-size: 11px; line-height: 1.2; letter-spacing: .06em; color: var(--muted); }
+.assistant-avatar { background: #eef4ed; }
+.assistant-avatar img { width: 40px; height: 40px; object-fit: contain; }
+@media (max-width: 1100px) and (min-width: 821px) {
+  .header-phone { display: none; }
+  .header-inner { gap: 16px; }
+}
+@media (max-width: 480px) {
+  .header-inner { gap: 8px; }
+  .header-inner .brand { gap: 5px; }
+  .header-inner .brand-logo { width: 40px; height: 40px; }
+  .header-inner .brand-name { font-size: 14px; }
+  .header-inner .brand-byline { font-size: 10px; letter-spacing: 0; }
+  .header-actions { gap: 4px; }
+  .lang-toggle a { padding: 6px 8px; }
+}
+@media (max-width: 359px) {
+  .header-inner .brand-logo { width: 32px; height: 32px; }
+  .header-inner .brand-name { font-size: 12px; }
+  .header-inner .brand-byline { font-size: 9px; }
+}

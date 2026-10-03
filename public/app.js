@@ -1,4 +1,4 @@
-/* НИ Имоти — progressive enhancement. The site works without this file; it adds:
+/* My Balkan Place — progressive enhancement. The site works without this file; it adds:
    mobile menu, card photo carousels, AI search / questions, contact form via fetch, gallery + lightbox, maps. */
 (function () {
   'use strict';

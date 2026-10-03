@@ -64,7 +64,8 @@ ${noindex ? raw('<meta name="robots" content="noindex">') : ''}
 <meta property="og:locale" content="${lang === 'en' ? 'en_GB' : 'bg_BG'}">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#FFFFFF">
-<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/brand/my-balkan-place.png" type="image/png">
+<link rel="apple-touch-icon" href="/brand/my-balkan-place.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -90,14 +91,17 @@ ${env?.DB ? raw('<script src="/assistant.js" defer></script>') : ''}
   return rendered;
 }
 
+function brandLogo(lang) {
+  return html`<img class="brand-logo" src="/brand/my-balkan-place.png" width="56" height="56" alt="">
+    <span class="brand-wordmark"><span class="brand-name">My Balkan Place</span><span class="brand-byline">${AGENT.name[lang]}</span></span>`;
+}
+
 function header(lang, path) {
   const t = T[lang];
   return html`<header class="site-header">
   <div class="wrap header-inner">
     <a href="${href(lang, '/')}" class="brand" aria-label="${SITE.name}">
-      <span class="brand-mark" aria-hidden="true">НИ</span>
-      <span class="brand-name">${SITE.name}</span>
-      <span class="brand-tag">${t.brandTag}</span>
+      ${brandLogo(lang)}
     </a>
     <nav class="desknav" aria-label="Main">
       ${NAV.map(([k, p]) => html`<a href="${href(lang, p)}">${t[k]}</a>`)}
@@ -125,7 +129,7 @@ function footer(lang, updatedAt) {
   return html`<footer class="site-footer">
   <div class="wrap footer-inner">
     <div class="footer-col">
-      <div class="brand"><span class="brand-mark" aria-hidden="true">НИ</span><span class="brand-name">${SITE.name}</span></div>
+      <a href="${href(lang, '/')}" class="brand" aria-label="${SITE.name}">${brandLogo(lang)}</a>
       <p class="muted small">${AGENT.name[lang]} · ${AGENT.role[lang]}</p>
       <p class="muted small">${AGENT.address[lang]}</p>
     </div>

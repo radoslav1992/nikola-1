@@ -33,7 +33,7 @@ import {
 
 export function adminPage() {
   return new Response(
-    `<!doctype html><html lang="bg"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>НИ Имоти · Управление</title><link rel="stylesheet" href="/admin.css"></head><body><div id="admin-root"><p>Зареждане…</p></div><script src="/admin.js" defer></script></body></html>`,
+    `<!doctype html><html lang="bg"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>My Balkan Place · Управление</title><link rel="stylesheet" href="/admin.css"></head><body><div id="admin-root"><p>Зареждане…</p></div><script src="/admin.js" defer></script></body></html>`,
     {
       headers: {
         "content-type": "text/html; charset=utf-8",

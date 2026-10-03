@@ -93,7 +93,7 @@ npx wrangler secret put ELEVENLABS_API_KEY
 
 1. Създайте HMAC webhook в ElevenLabs за `https://ВАШИЯТ-ДОМЕЙН/api/elevenlabs/webhook`.
 2. Запазете подписващия secret като `ELEVENLABS_WEBHOOK_SECRET` в Worker-а. Запазете webhook ID като `ELEVENLABS_WEBHOOK_ID` (variable).
-3. Настройката на агента свързва този webhook **само с агента на НИ Имоти**, за transcript и call initiation failure събития. Не сменяйте общите настройки на несвързани агенти.
+3. Настройката на агента свързва този webhook **само с агента на My Balkan Place**, за transcript и call initiation failure събития. Не сменяйте общите настройки на несвързани агенти.
 4. Настройте/проверете достъпния ElevenLabs кредит и подходящ глас за български и английски. Кодът задава `eleven_flash_v2_5`, който поддържа и двата езика ([официални модели](https://elevenlabs.io/docs/overview/models)).
 
 ```bash

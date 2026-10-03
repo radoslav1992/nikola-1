@@ -8,7 +8,7 @@ import { catalogueFeed } from './manage/feed.js';
 import { assistantApi, agentTool, receiveWebhook, syncConversations, cleanup } from './manage/eleven.js';
 import { renderRegion } from './render/region.js';
 /**
- * НИ Имоти — Cloudflare Worker entry point.
+ * My Balkan Place — Cloudflare Worker entry point.
  *
  * Routes (each also under /en/… for English):
  *   /                     home

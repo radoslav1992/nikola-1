@@ -2,7 +2,7 @@
   "name": "ni-imoti",
   "version": "1.0.0",
   "private": true,
-  "description": "НИ Имоти — сайт на брокер Никола Иванов (niimoti.com). Cloudflare Worker + static assets.",
+  "description": "My Balkan Place — сайт на брокер Никола Иванов (mybalkanplace.com). Cloudflare Worker + static assets.",
   "type": "module",
   "scripts": {
     "build": "npm run build:client && npm test",

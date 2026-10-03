@@ -107,7 +107,7 @@ export function icsCalendar(rows) {
   return [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
-    "PRODID:-//NI Imoti//Calendar//BG",
+    "PRODID:-//My Balkan Place//Calendar//BG",
     ...rows
       .filter((r) => r.status === "confirmed")
       .flatMap((r) => [
