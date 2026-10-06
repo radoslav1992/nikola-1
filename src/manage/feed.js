@@ -6,6 +6,7 @@ import { esc } from "../render/html.js";
 function entry(listing, origin, prefix, lang) {
   return {
     id: listing.id,
+    number: listing.number,
     reference: listing.ref,
     language: lang,
     title: listing.title,
@@ -40,8 +41,8 @@ function entry(listing, origin, prefix, lang) {
   };
 }
 const note = {
-  bg: "Каталогът съдържа само публикувани активни или резервирани имоти. ID е вътрешният идентификатор за get_property, а reference е отделната референция на обявата. Проверете цена и наличност чрез get_property по ID преди препоръка: запазено копие на тази страница може да е остаряло. Липсващите данни са неизвестни, не отрицателен отговор. Локацията е населено място, не точен адрес.",
-  en: "Only published active or reserved properties are included. ID is the internal identifier used by get_property; reference is the separate listing reference. Confirm price and availability with get_property using ID before recommending a property: a stored copy of this page may be outdated. Missing data means unknown, not a negative answer. Location identifies the settlement, never the exact address.",
+  bg: "Каталогът съдържа само публикувани активни или резервирани имоти. № е краткият публичен номер, с който клиентите посочват имота (напр. „имот 00023“); ID е вътрешният идентификатор. get_property приема и двата. Проверете цена и наличност чрез get_property по ID преди препоръка: запазено копие на тази страница може да е остаряло. Липсващите данни са неизвестни, не отрицателен отговор. Локацията е населено място, не точен адрес.",
+  en: 'Only published active or reserved properties are included. № is the short public number visitors use to name a property (e.g. "property 00023"); ID is the internal identifier. get_property accepts either. Confirm price and availability with get_property using ID before recommending a property: a stored copy of this page may be outdated. Missing data means unknown, not a negative answer. Location identifies the settlement, never the exact address.',
 };
 const labels = {
   bg: [
@@ -90,8 +91,8 @@ function facts(item, lang) {
 }
 function description(item, lang) {
   return [
+    `№: ${item.number ?? item.reference}`,
     `ID: ${item.id}`,
-    `Reference: ${item.reference}`,
     ...facts(item, lang).map(([k, v]) => `${k}: ${v}`),
     "",
     item.description,
@@ -168,7 +169,7 @@ export async function catalogueFeed(request, env, path, lang = "bg") {
       `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:ni="urn:ni-imoti:property"><channel>
 <title>My Balkan Place — ${lang === "en" ? "Property catalogue" : "Каталог с имоти"}</title><link>${xml(origin + prefix + "/agent/catalog")}</link><description>${xml(note[lang])}</description><language>${lang}</language><lastBuildDate>${new Date(generatedAt).toUTCString()}</lastBuildDate>
-${items.map((item) => `<item><guid isPermaLink="false">urn:ni-imoti:property:${item.id}</guid><title>${xml(item.title)}</title><link>${xml(item.url)}</link><description>${xml(description(item, lang))}</description><ni:id>${item.id}</ni:id><ni:location>${xml(item.location.settlement)}</ni:location><ni:status>${xml(item.status)}</ni:status>${item.price_eur == null ? "" : `<ni:price currency="EUR">${xml(item.price_eur)}</ni:price>`}<ni:details>${xml(item.details_url)}</ni:details><ni:updated>${xml(item.updated_at)}</ni:updated></item>`).join("\n")}
+${items.map((item) => `<item><guid isPermaLink="false">urn:ni-imoti:property:${item.id}</guid><title>${xml(item.title)}</title><link>${xml(item.url)}</link><description>${xml(description(item, lang))}</description><ni:id>${item.id}</ni:id>${item.number ? `<ni:number>${item.number}</ni:number>` : ""}<ni:location>${xml(item.location.settlement)}</ni:location><ni:status>${xml(item.status)}</ni:status>${item.price_eur == null ? "" : `<ni:price currency="EUR">${xml(item.price_eur)}</ni:price>`}<ni:details>${xml(item.details_url)}</ni:details><ni:updated>${xml(item.updated_at)}</ni:updated></item>`).join("\n")}
 </channel></rss>`,
       "application/rss+xml",
     );
@@ -184,7 +185,7 @@ ${
     ? items
         .map(
           (item) =>
-            `<article id="property-${item.id}"><h2>${esc(item.title)}</h2><p>ID: <strong>${item.id}</strong> · Reference: ${esc(item.reference)}</p><dl>${facts(
+            `<article id="property-${item.id}"><h2>№ ${esc(item.number ?? item.reference)} — ${esc(item.title)}</h2><p>№ <strong>${esc(item.number ?? item.reference)}</strong> · ID: <strong>${item.id}</strong></p><dl>${facts(
               item,
               lang,
             )

@@ -51,5 +51,5 @@ export function renderMap({ lang, data, filters, query, env }) {
   <noscript><p class="empty">${lang === 'en' ? 'The map needs JavaScript.' : 'Картата изисква JavaScript.'} <a href="${href(lang, '/imoti')}">${t.listView}</a></p></noscript>
 </section>`;
 
-  return page({ lang, path: '/karta' + (query ? `?${query}` : ''), title: t.mapTitle2, description: t.mapSub2, body, updatedAt: data.fetchedAt, env, pageClass: 'map', leaflet: true, noindex: Boolean(query) });
+  return page({ lang, path: '/karta' + (query ? `?${query}` : ''), title: t.mapTitle2, description: t.mapSub2, body, env, pageClass: 'map', leaflet: true, noindex: Boolean(query) });
 }

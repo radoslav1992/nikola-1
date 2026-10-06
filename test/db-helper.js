@@ -1,13 +1,13 @@
 import { DatabaseSync } from "node:sqlite";
-import { readFileSync } from "node:fs";
-export function database() {
+import { readFileSync, readdirSync } from "node:fs";
+const migrations = new URL("../migrations/", import.meta.url);
+// `until` (e.g. "0001") stops after that migration, to test older schemas.
+export function database({ until = "9999" } = {}) {
   const sqlite = new DatabaseSync(":memory:");
-  sqlite.exec(
-    readFileSync(
-      new URL("../migrations/0001_managed_catalog.sql", import.meta.url),
-      "utf8",
-    ),
-  );
+  for (const file of readdirSync(migrations)
+    .filter((f) => f.endsWith(".sql") && f.slice(0, 4) <= until)
+    .sort())
+    sqlite.exec(readFileSync(new URL(file, migrations), "utf8"));
   class Statement {
     constructor(sql, args = []) {
       this.sql = sql;

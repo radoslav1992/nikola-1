@@ -150,7 +150,7 @@ ${similar.length ? html`<section class="wrap section">
   ];
 
   const desc = paragraphs[0]?.slice(0, 160) || `${typeLabel(l.type, lang)} · ${placeLabel(l.place, lang)} · ${fmtPrice(l, lang)}`;
-  return page({ lang, path: listingPath(l), title: l.title, description: desc, body, jsonLd, image: main ? imgUrl(main, 'big') : null, updatedAt: data.fetchedAt, env, pageClass: 'property', leaflet: Boolean(coords) });
+  return page({ lang, path: listingPath(l), title: l.title, description: desc, body, jsonLd, image: main ? imgUrl(main, 'big') : null, env, pageClass: 'property', leaflet: Boolean(coords) });
 }
 
 function mergeImages(cardImages = [], detailImages = []) {

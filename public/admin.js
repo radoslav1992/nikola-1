@@ -185,11 +185,14 @@ function bindNotes() {
     (b) => (b.onclick = action(() => notes(b.dataset.kind, b.dataset.note))),
   );
 }
+// Short public number visitors quote (e.g. 00023); given on first publication.
+const propertyNo = (p) =>
+  p.public_no ? "№ " + String(p.public_no).padStart(5, "0") : "";
 const views = {
   async properties() {
     const { items } = await api("properties");
     $("#content").innerHTML =
-      `<div class="toolbar"><button id="new-property">Нов имот</button><button class="quiet" id="cleanup-imports">Почисти импортнатите чернови</button><input id="find" placeholder="Заглавие, място или номер"><select id="state"><option value="">Всички</option><option value="published">Публикувани</option><option value="draft">Чернови</option><option value="archived">Архив</option><option value="review">За преглед</option></select></div><p>${items.filter((i) => i.publication === "published").length} публикувани · ${items.length} общо. Самостоятелен каталог. Вие управлявате съдържанието, цените и наличността. Архивът е достъпен от филтъра.</p><div id="property-list"></div>`;
+      `<div class="toolbar"><button id="new-property">Нов имот</button><button class="quiet" id="cleanup-imports">Почисти импортнатите чернови</button><input id="find" placeholder="Заглавие, място, № или ID"><select id="state"><option value="">Всички</option><option value="published">Публикувани</option><option value="draft">Чернови</option><option value="archived">Архив</option><option value="review">За преглед</option></select></div><p>${items.filter((i) => i.publication === "published").length} публикувани · ${items.length} общо. Самостоятелен каталог. Вие управлявате съдържанието, цените и наличността. Архивът е достъпен от филтъра.</p><div id="property-list"></div>`;
     const draw = () => {
       const q = $("#find").value.toLocaleLowerCase(),
         state = $("#state").value;
@@ -197,14 +200,14 @@ const views = {
         (p) =>
           ((!state && p.publication !== "archived") ||
             (state === "review" ? p.needs_review : p.publication === state)) &&
-          `${p.id} ${p.content.title} ${p.content.place}`
+          `${propertyNo(p)} ${p.id} ${p.content.title} ${p.content.place}`
             .toLocaleLowerCase()
             .includes(q),
       );
       $("#property-list").innerHTML = table(
         ["Имот", "Място", "Цена (€)", "Публикация", "Наличност", ""],
         rows.map((p) => [
-          `<b>${esc(p.content.title || p.source.title || "Нов имот")}</b><small>#${p.id}${p.needs_review ? " · За преглед" : ""}</small>`,
+          `<b>${esc(p.content.title || p.source.title || "Нов имот")}</b><small>${propertyNo(p) ? propertyNo(p) + " · " : ""}#${p.id}${p.needs_review ? " · За преглед" : ""}</small>`,
           esc(p.content.place),
           esc(p.sync_price && p.source_id ? p.source.price : p.content.price),
           states[p.publication],
@@ -536,7 +539,11 @@ async function editProperty(id) {
   editor = await api("properties/" + id);
   const c = editor.content,
     { items: regions } = await api("regions");
-  $("#title").textContent = "Редакция на имот";
+  const showTitle = () =>
+    ($("#title").textContent =
+      "Редакция на имот " +
+      (propertyNo(editor) || "· номерът се дава при публикуване"));
+  showTitle();
   $("#content").innerHTML =
     `<div class="toolbar"><button id="back" class="quiet">← Към имотите</button><button data-note="${id}" data-kind="property" class="quiet">Лични бележки</button><a href="/imot/${id}" target="_blank" rel="noopener">Публична страница</a></div><p class="muted">За публикуване са нужни заглавие и пълно описание на BG и EN, тип, действително населено място, снимка и двете отметки за преглед в края. Можете да запазвате незавършен имот като „Чернова“.</p><form id="property" class="form-grid panel"><h2 class="wide">Публикация и наличност</h2>${select(
       "publication",
@@ -747,6 +754,7 @@ async function editProperty(id) {
         "PUT",
       );
       $("#editor-status").textContent = "Запазено.";
+      showTitle();
       notify("Имотът е запазен.");
     } catch (err) {
       $("#editor-status").textContent = err.message;

@@ -9,6 +9,8 @@ export const parse = (text, fallback = {}) => {
     return fallback;
   }
 };
+// Short public number shown to visitors and quoted to the assistant, e.g. 00023.
+export const publicNumber = (n) => (n ? String(n).padStart(5, "0") : null);
 export async function settings(env) {
   if (!env.DB) return {};
   const row = await env.DB.prepare(
@@ -84,9 +86,11 @@ export function publicListing(row, lang = "bg") {
   const source = parse(row.source_json),
     c = parse(row.content_json),
     imageList = c.images || [];
+  const number = publicNumber(row.public_no);
   const out = {
     id: row.id,
-    ref: source.ref || `NI-${row.id}`,
+    number,
+    ref: number || source.ref || `NI-${row.id}`,
     slug: slugify(c.title || source.title || String(row.id)),
     title:
       lang === "en" && c.titleEn ? c.titleEn : c.title || source.title || "",
@@ -228,8 +232,28 @@ export async function saveProperty(env, propertyId, body) {
     )
       .bind(propertyKey, JSON.stringify(content), publication, status)
       .run();
+  if (publication === "published") await assignPublicNumber(env, propertyKey);
   await audit(env, "property.save", propertyKey, publication);
   return editorProperty(await getProperty(env, propertyKey));
+}
+// Numbers are given on first publication, so drafts that are never published
+// do not use them up. A published number stays with the property for good.
+async function assignPublicNumber(env, propertyId) {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      await env.DB.prepare(
+        "UPDATE properties SET public_no=(SELECT COALESCE(MAX(public_no),0)+1 FROM properties) WHERE id=? AND public_no IS NULL",
+      )
+        .bind(propertyId)
+        .run();
+      return;
+    } catch (e) {
+      // Before migrations/0002_public_number.sql runs, saving still works.
+      if (/no such column/i.test(e.message)) return;
+      // Two publications at the same moment: the unique index rejects one.
+      if (!/UNIQUE/i.test(e.message) || attempt) throw e;
+    }
+  }
 }
 export function initialContent(l, detail = {}) {
   return {

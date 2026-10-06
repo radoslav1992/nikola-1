@@ -83,7 +83,7 @@ export function renderReviews({ lang, data, testimonials, env }) {
       }]
     : [];
 
-  return page({ lang, path: '/otzivi', title: t.reviewsTitle, description: t.reviewsSub, body, jsonLd, updatedAt: testimonials?.fetchedAt, env, pageClass: 'reviews' });
+  return page({ lang, path: '/otzivi', title: t.reviewsTitle, description: t.reviewsSub, body, jsonLd, env, pageClass: 'reviews' });
 }
 
 export { raw };
