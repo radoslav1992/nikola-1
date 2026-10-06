@@ -1,5 +1,5 @@
 import { html, raw, toString, esc } from './html.js';
-import { T, AGENT, SITE, fmtDate } from './i18n.js';
+import { T, AGENT, SITE } from './i18n.js';
 
 /** Build a site path for the given language. */
 export function href(lang, path = '/') {
@@ -40,7 +40,7 @@ export const assistantEnabled = (env, s = env?.SITE_SETTINGS || {}) =>
 
 const LEAFLET_HEAD = '<link rel="stylesheet" href="/vendor/leaflet/leaflet.css"><script src="/vendor/leaflet/leaflet.js" defer></script>';
 
-export function page({ lang = 'bg', title, description, path = '/', body, jsonLd = [], image, updatedAt, env, noindex = false, pageClass = '', leaflet = false }) {
+export function page({ lang = 'bg', title, description, path = '/', body, jsonLd = [], image, env, noindex = false, pageClass = '', leaflet = false }) {
   const t = T[lang];
   const site = (env?.SITE_URL || `https://${SITE.domain}`).replace(/\/$/, '');
   const fullTitle = title ? `${title} · ${SITE.name}` : `${SITE.name} — ${t.brandTag}`;
@@ -83,7 +83,7 @@ ${header(lang, path)}
 <main id="page">
 ${body}
 </main>
-${footer(lang, updatedAt)}
+${footer(lang)}
 ${mobileBar(lang)}
 <script src="/app.js" defer></script>
 ${assistantEnabled(env) ? raw('<script src="/assistant.js" defer></script>') : ''}
@@ -129,7 +129,7 @@ function header(lang, path) {
 </header>`;
 }
 
-function footer(lang, updatedAt) {
+function footer(lang) {
   const t = T[lang];
   return html`<footer class="site-footer">
   <div class="wrap footer-inner">
@@ -143,7 +143,7 @@ function footer(lang, updatedAt) {
       <a href="${href(lang, '/predlozhete-imot')}">${t.sellerLink}</a>
     </div>
     <div class="footer-col">
-      <p class="muted small">${t.footerSource} <a href="${AGENT.sourceUrl}" rel="noopener" target="_blank">SUPRIMMO ↗</a>${updatedAt ? html` · ${t.footerUpdated}: ${fmtDate(updatedAt, lang)}` : ''}</p>
+      <p class="muted small">${t.footerSource}</p>
       <p class="muted small">${lang === 'en' ? 'Map data' : 'Карта'}: © <a href="https://www.openstreetmap.org/copyright" rel="noopener" target="_blank">OpenStreetMap</a> contributors</p>
       <p class="muted small">© ${new Date().getUTCFullYear()} ${SITE.name} · ${SITE.domain}</p>
     </div>

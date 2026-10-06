@@ -9,6 +9,7 @@ import { renderHome } from '../src/render/home.js';
 import { renderListings } from '../src/render/listings.js';
 import { renderProperty } from '../src/render/property.js';
 import { renderSeller } from '../src/render/seller.js';
+import { renderRegion } from '../src/render/region.js';
 import { T } from '../src/render/i18n.js';
 const data = JSON.parse(readFileSync(new URL('../data/seed.json', import.meta.url)));
 const items = data.items;
@@ -95,5 +96,27 @@ for (const lang of ['bg', 'en']) {
     assert.match(seller, /name="intent" value="sell"/);
     assert.match(seller, /name="propertyLocation" required/);
     assert.match(seller, /name="propertyType" required/);
+  });
+
+  test(`${lang}: final review copy, budgets, contacts and footer`, () => {
+    const home = renderHome({ lang, data, env: {} });
+    assert.ok(home.includes(T[lang].heroSub));
+    assert.doesNotMatch(home, /BG · EN · ES/);
+    // Two budget selects on the home page and one on the listings page, all
+    // with the same seven ranges plus "any".
+    const budgetValues = ['', '0-20000', '20000-50000', '50000-100000', '100000-150000', '150000-250000', '250000-400000', '400000-'];
+    const selects = (html) => [...html.matchAll(/<select name="budget">(.*?)<\/select>/gs)].map((m) => [...m[1].matchAll(/value="([^"]*)"/g)].map((v) => v[1]));
+    assert.deepEqual(selects(home), [budgetValues, budgetValues]);
+    const list = renderListings({ lang, data, filters: parseFilters(new URLSearchParams('budget=50000-100000')), env: {}, query: 'budget=50000-100000' });
+    assert.deepEqual(selects(list), [budgetValues]);
+    assert.match(list, /value="50000-100000" selected/);
+    const found = applyFilters(items, parseFilters(new URLSearchParams('budget=50000-100000')));
+    assert.ok(found.length && found.every((l) => l.price >= 50000 && l.price <= 100000));
+    assert.match(home, /viber:\/\/chat\?number=%2B359884128117"><span class="ico">VB<\/span>Viber \+359 884 128 117</);
+    assert.equal((home.match(/href="https:\/\/maps\.app\.goo\.gl\/1ryQnKmpVsTrfq8JA"/g) || []).length, 2);
+    assert.ok(home.includes(`<p class="muted small">${T[lang].footerSource}</p>`));
+    assert.doesNotMatch(home, /SUPRIMMO ↗|Обновено|Updated:/);
+    const region = renderRegion({ lang, data, region: { key: 'sevlievo', name: { bg: 'Севлиево', en: 'Sevlievo' }, guide: { bg: 'Текст.', en: 'Text.' } }, env: {} });
+    assert.match(region, /<header class="region-intro">[\s\S]*<h1>[\s\S]*class="prose"[\s\S]*class="region-cta"[\s\S]*<\/header>\s*<h2>/);
   });
 }

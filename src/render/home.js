@@ -1,7 +1,7 @@
 import { html, raw } from './html.js';
 import { T, AGENT, SITE, CATEGORIES, typeLabel, placeLabel, transliterate, fmtPrice } from './i18n.js';
 import { page, href, waLink, viberLink, telHref, assistantEnabled } from './layout.js';
-import { cardGrid, contactForm, imgUrl, listingHref } from './components.js';
+import { cardGrid, contactForm, imgUrl, listingHref, budgetOptions } from './components.js';
 import { distinctTypes, regionChips } from '../catalog.js';
 import { groupByRegion, REGION_NAMES } from '../regions.js';
 import { reviewsSection } from './testimonials.js';
@@ -35,7 +35,6 @@ export function renderHome({ lang, data, env, testimonials = null }) {
     <div class="hero-stats">
       <span>${t.heroStat(items.length)}</span>
       <span>${t.heroStat2}</span>
-      <span>BG · EN · ES</span>
     </div>
   </div>
   <div class="hero-media">
@@ -51,7 +50,7 @@ export function renderHome({ lang, data, env, testimonials = null }) {
       <div class="filters-grid">
         <label>${t.fLocation}<input name="loc" placeholder="${t.fLocationPh}" list="loc-list"></label>
         <datalist id="loc-list">${regions.map((r) => html`<option value="${r.key}">${lang === 'en' ? transliterate(r.label) : r.label}</option>`)}</datalist>
-        <label>${t.fBudget}<select name="budget"><option value="">${t.fBudgetAny}</option><option value="0-30000">${t.fBudget1}</option><option value="30000-60000">${t.fBudget2}</option><option value="60000-120000">${t.fBudget3}</option><option value="120000-">${t.fBudget4}</option></select></label>
+        <label>${t.fBudget}<select name="budget">${budgetOptions(lang)}</select></label>
         <label>${t.fType}<select name="type"><option value="">${t.fTypeAny}</option>${types.map((ty) => html`<option value="${ty}">${typeLabel(ty, lang)}</option>`)}</select></label>
         <label>${t.fDeal}<select name="deal"><option value="">${t.fDealAny}</option><option value="sale">${t.fSale}</option><option value="rent">${t.fRent}</option></select></label>
         <div class="filters-submit"><button type="submit" class="btn btn-dark">${t.fSearch}</button></div>
@@ -64,7 +63,7 @@ export function renderHome({ lang, data, env, testimonials = null }) {
         <div class="ai-form"><label class="sr-only" for="ai-query">${t.aiPh}</label><input id="ai-query" name="q" placeholder="${t.aiPh}" maxlength="400"><button type="submit" class="btn btn-primary">${t.aiGo}</button></div>
         <details class="ai-criteria"><summary>${t.aiCriteria}</summary><div class="guided-grid">
           <label>${t.regionFilter}<select name="region"><option value="">${t.anyRegion}</option>${groups.map((g) => html`<option value="${g.key}">${(g.name || REGION_NAMES[g.key])?.[lang] || g.key} (${g.count})</option>`)}</select></label>
-          <label>${t.fBudget}<select name="budget"><option value="">${t.fBudgetAny}</option><option value="0-30000">${t.fBudget1}</option><option value="30000-60000">${t.fBudget2}</option><option value="60000-120000">${t.fBudget3}</option><option value="120000-">${t.fBudget4}</option></select></label>
+          <label>${t.fBudget}<select name="budget">${budgetOptions(lang)}</select></label>
           <label>${t.fType}<select name="type"><option value="">${t.fTypeAny}</option>${types.map((ty) => html`<option value="${ty}">${typeLabel(ty, lang)}</option>`)}</select></label>
           <label>${t.fDeal}<select name="deal"><option value="">${t.fDealAny}</option><option value="sale">${t.fSale}</option><option value="rent">${t.fRent}</option></select></label>
         </div></details>
@@ -149,7 +148,7 @@ ${reviewsSection(lang, testimonials, { limit: 3 })}
       <ul class="contact-list">
         <li><a href="${telHref(AGENT.mobile)}"><span class="ico">${raw(ICON_PHONE)}</span>${AGENT.mobile}</a></li>
         <li><a href="${waLink()}" target="_blank" rel="noopener"><span class="ico">WA</span>WhatsApp ${AGENT.whatsapp}</a></li>
-        <li><a href="${viberLink()}"><span class="ico">VB</span>Viber</a></li>
+        <li><a href="${viberLink()}"><span class="ico">VB</span>Viber ${AGENT.whatsapp}</a></li>
         <li><a href="${AGENT.mapsUrl}" target="_blank" rel="noopener"><span class="ico">${raw(ICON_PIN)}</span>${AGENT.address[lang]}</a></li>
       </ul>
     </div>
@@ -173,7 +172,7 @@ ${reviewsSection(lang, testimonials, { limit: 3 })}
     },
   ];
 
-  return page({ lang, path: '/', description: t.metaHome, body, jsonLd, image: heroImg ? imgUrl(heroImg, 'big') : null, updatedAt: data.fetchedAt, env, pageClass: 'home' });
+  return page({ lang, path: '/', description: t.metaHome, body, jsonLd, image: heroImg ? imgUrl(heroImg, 'big') : null, env, pageClass: 'home' });
 }
 
 const ICON_EYE = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';

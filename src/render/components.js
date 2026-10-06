@@ -63,6 +63,12 @@ export function cardGrid(items, lang, opts = {}) {
   return html`<div class="grid cards">${items.map((l, i) => card(l, lang, { eager: opts.eagerFirst && i < 3 }))}</div>`;
 }
 
+/** Budget choices for the search forms; values are parsed by parseFilters. */
+export function budgetOptions(lang, selected = '') {
+  const t = T[lang];
+  return [['', t.fBudgetAny], ...t.budgets].map(([v, label]) => html`<option value="${v}" ${v === selected ? 'selected' : ''}>${label}</option>`);
+}
+
 /** Agent contact card used in the aside and the about section. */
 export function agentCard(lang, { listing = null, compact = false } = {}) {
   const t = T[lang];

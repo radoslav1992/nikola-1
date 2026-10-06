@@ -9,27 +9,33 @@ export function renderRegion({ lang, data, region, env }) {
       lang === "en"
         ? "Tell us what you are looking for"
         : "Споделете какъв имот търсите";
-  const body = html`<section class="wrap section">
+  const body = html`<section class="wrap section region-page">
     <nav class="crumbs">
       <a href="${href(lang, "/#regions")}"
         >${lang === "en" ? "Areas" : "Райони"}</a
       >
     </nav>
-    <h1>${title}</h1>
-    <div class="prose">
-      ${(region.guide?.[lang] || region.guide?.bg || "").split(/\n\s*\n/).map((p) => html`<p>${p}</p>`)}
-    </div>
-    <p>
-      ${
-        assistantEnabled(env)
-          ? html`<button type="button" class="btn btn-primary" data-agent-open>
-              ${tell}
-            </button>`
-          : html`<a class="btn btn-primary" href="${href(lang, "/#contact")}"
-              >${tell}</a
-            >`
-      }
-    </p>
+    <header class="region-intro">
+      <h1>${title}</h1>
+      <div class="prose">
+        ${(region.guide?.[lang] || region.guide?.bg || "").split(/\n\s*\n/).map((p) => html`<p>${p}</p>`)}
+      </div>
+      <p class="region-cta">
+        ${
+          assistantEnabled(env)
+            ? html`<button
+                type="button"
+                class="btn btn-primary"
+                data-agent-open
+              >
+                ${tell}
+              </button>`
+            : html`<a class="btn btn-primary" href="${href(lang, "/#contact")}"
+                >${tell}</a
+              >`
+        }
+      </p>
+    </header>
     <h2>
       ${lang === "en" ? "Properties in this area" : "Имоти в този район"}
       (${items.length})

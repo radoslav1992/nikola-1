@@ -2,7 +2,7 @@ import { groupByRegion, REGION_NAMES } from '../regions.js';
 import { html } from './html.js';
 import { T, CATEGORIES, typeLabel, transliterate } from './i18n.js';
 import { page, href } from './layout.js';
-import { cardGrid, pagination, viewSwitch } from './components.js';
+import { cardGrid, pagination, viewSwitch, budgetOptions } from './components.js';
 import { distinctTypes, regionChips, applyFilters, paginate } from '../catalog.js';
 
 export function renderListings({ lang, data, filters, env, path = '/imoti', query = '' }) {
@@ -35,7 +35,6 @@ export function renderListings({ lang, data, filters, env, path = '/imoti', quer
   };
 
   const sortOpts = [['top', t.sortTop], ['price_asc', t.sortPriceAsc], ['price_desc', t.sortPriceDesc], ['area_asc', t.sortAreaAsc], ['area_desc', t.sortAreaDesc]];
-  const budgets = [['', t.fBudgetAny], ['0-30000', t.fBudget1], ['30000-60000', t.fBudget2], ['60000-120000', t.fBudget3], ['120000-', t.fBudget4]];
   const hasFilters = filters.near || filters.region || filters.q || filters.loc || filters.type || filters.cat || filters.deal || filters.min != null || filters.max != null;
 
   const body = html`
@@ -53,7 +52,7 @@ export function renderListings({ lang, data, filters, env, path = '/imoti', quer
       <label>${t.fLocation}<input name="loc" value="${filters.loc}" placeholder="${t.fLocationPh}" list="loc-list"></label>
       <datalist id="loc-list">${regions.map((r) => html`<option value="${r.key}">${lang === 'en' ? transliterate(r.label) : r.label}</option>`)}</datalist>
       <label>${t.fType}<select name="type"><option value="">${t.fTypeAny}</option>${types.map((ty) => html`<option value="${ty}" ${ty === filters.type ? 'selected' : ''}>${typeLabel(ty, lang)}</option>`)}</select></label>
-      <label>${t.fBudget}<select name="budget">${budgets.map(([v, l]) => html`<option value="${v}" ${v === filters.budget ? 'selected' : ''}>${l}</option>`)}</select></label>
+      <label>${t.fBudget}<select name="budget">${budgetOptions(lang, filters.budget)}</select></label>
       <label>${t.fDeal}<select name="deal"><option value="">${t.fDealAny}</option><option value="sale" ${filters.deal === 'sale' ? 'selected' : ''}>${t.fSale}</option><option value="rent" ${filters.deal === 'rent' ? 'selected' : ''}>${t.fRent}</option></select></label>
       <label>${t.fSort}<select name="sort">${sortOpts.map(([v, l]) => html`<option value="${v}" ${v === filters.sort ? 'selected' : ''}>${l}</option>`)}</select></label>
       ${filters.cat ? html`<input type="hidden" name="cat" value="${filters.cat}">` : ''}
@@ -88,7 +87,7 @@ export function renderListings({ lang, data, filters, env, path = '/imoti', quer
     title,
     description: `${t.listSub} ${t.results(all.length)}.`,
     body,
-    updatedAt: data.fetchedAt,
+   
     env,
     noindex: Boolean(filters.q),
     pageClass: 'listings',
