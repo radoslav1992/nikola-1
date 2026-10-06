@@ -73,9 +73,13 @@ test("public feeds export full curated content, escape HTML/XML, and never leak 
   const html = new JSDOM(await (await call("/agent/catalog")).text());
   assert.equal(html.window.document.querySelectorAll("script").length, 0);
   assert.equal(html.window.document.querySelectorAll("article").length, 1);
+  // The short public number leads each entry so the assistant's knowledge base
+  // copy can match "имот 00001" to its property.
+  assert.equal(item.number, "00001");
+  assert.equal(item.reference, "00001");
   assert.equal(
     html.window.document.querySelector("h2").textContent,
-    item.title,
+    `№ 00001 — ${item.title}`,
   );
   html.window.close();
   const rss = new JSDOM(await (await call("/feeds/properties.xml")).text(), {
