@@ -399,3 +399,52 @@ test("assistant shows visitors localized errors, never server or browser interna
   assert.match(await attempt("[data-voice]"), /^Microphone access is blocked.*Let’s chat/);
   dom.window.close();
 });
+test("a final reply joins its streamed bubble even when the server's IDs differ", async () => {
+  const dom = new JSDOM('<html lang="bg"><body></body></html>', {
+    url: "https://niimoti.com/", runScripts: "outside-only",
+  });
+  const w = dom.window;
+  w.HTMLElement.prototype.scrollIntoView = () => {};
+  let options;
+  w.fakeSession = async (o) => {
+    options = o;
+    return { sendUserMessage() {}, endSession: async () => {} };
+  };
+  w.fetch = async (path) => Response.json(path.includes("/config")
+    ? { enabled: true, notice: "Notice", phone: "+359884128117" }
+    : { signedUrl: "wss://signed", firstMessage: "Здравейте!" });
+  w.eval(bundle.outputFiles[0].text);
+  const $ = (s) => w.document.querySelector(s);
+  const texts = () => [...$("[data-messages]").children].map((p) => p.textContent);
+  $(".assistant-launch").click();
+  $("[data-text]").click();
+  await until(() => options && !$("#assistant-input").disabled);
+  const stream = (event_id, response_id, ...chunks) => {
+    options.onAgentChatResponsePart({ type: "start", text: "", event_id, response_id });
+    for (const text of chunks) options.onAgentChatResponsePart({ type: "delta", text, event_id, response_id });
+    options.onAgentChatResponsePart({ type: "stop", text: "", event_id, response_id });
+  };
+  // Seen live: every answer appeared twice because the final agent_response
+  // carried another event_id than its streamed parts, without a response_id.
+  stream(2, "r1", "В момента в каталога има ", "5 къщи за продажба.");
+  options.onMessage({ source: "ai", message: "В момента в каталога има 5 къщи за продажба.", event_id: 3 });
+  stream(4, "r2", "Да. Има къща в кв. Ябълка.");
+  options.onMessage({ source: "ai", message: "Да. Има къща в кв. Ябълка.", event_id: 5 });
+  assert.deepEqual(texts(), [
+    "Здравейте!",
+    "В момента в каталога има 5 къщи за продажба.",
+    "Да. Има къща в кв. Ябълка.",
+  ]);
+  // SDK 1.27 forwards the final's response_id, which pairs regardless of event_id.
+  stream(6, "r3", "Цена: 49 500 евро.");
+  options.onMessage({ source: "ai", message: "Цена: 49 500 евро.", event_id: 9, response_id: "r3" });
+  // A final that arrives before its stream keeps the stream from adding a copy.
+  options.onMessage({ source: "ai", message: "Искате ли оглед?", event_id: 10, response_id: "r4" });
+  stream(11, "r4", "Искате ли оглед?");
+  assert.deepEqual(texts().slice(3), ["Цена: 49 500 евро.", "Искате ли оглед?"]);
+  // Identical answers in separate turns are still both shown.
+  options.onMessage({ source: "ai", message: "Искате ли оглед?", event_id: 12 });
+  assert.equal(texts().filter((t) => t === "Искате ли оглед?").length, 2);
+  $("[data-end]").click();
+  dom.window.close();
+});

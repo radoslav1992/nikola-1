@@ -269,6 +269,18 @@ async function start(voice) {
     // streaming events also carry response_id. Keep both to reconcile the final
     // authoritative text with its existing bubble, including tool follow-ups.
     const replies = [];
+    // A final reply can carry another event_id than the parts streamed before
+    // it, and SDKs before 1.27 drop its response_id. If its IDs match nothing,
+    // it completes the stream still waiting for its final text.
+    const pendingStream = (text) => {
+      const open = replies.filter((r) => !r.committed);
+      const final = normalizeGreeting(text);
+      return (
+        open.find((r) => r.text && final.startsWith(normalizeGreeting(r.text))) ||
+        open.find((r) => r.stopped) ||
+        open[0]
+      );
+    };
     const replyFor = (event, partial = false) => {
       let reply = event.response_id
         ? replies.find((r) => r.responseId === event.response_id)
@@ -278,6 +290,7 @@ async function start(voice) {
       if (!reply) {
         const candidates = replies.filter((r) => r.eventId === event.event_id);
         reply = candidates.find((r) => !r.committed && (!partial || !r.responseId));
+        if (!reply && !partial) reply = pendingStream(event.message);
         if (!reply && !event.response_id) reply = candidates.at(-1);
         if (!reply && partial && event.response_id)
           reply = candidates.find((r) => r.committed && !r.responseId);
@@ -353,6 +366,7 @@ async function start(voice) {
         const reply = replyFor(part, true);
         if (reply.committed) return;
         if (part.type === "delta") reply.text += part.text || "";
+        if (part.type === "stop") reply.stopped = true;
         renderReply(reply, part.type !== "stop");
       },
       onModeChange: ({ mode }) => {
