@@ -355,3 +355,47 @@ test("text replies stream in place, reconcile final text and ignore stale or voi
   $("[data-end]").click();
   dom.window.close();
 });
+test("assistant shows visitors localized errors, never server or browser internals", async () => {
+  const dom = new JSDOM('<html lang="en"><body></body></html>', {
+      url: "https://niimoti.com/en/imoti",
+      runScripts: "outside-only",
+    }),
+    w = dom.window;
+  w.HTMLElement.prototype.scrollIntoView = () => {};
+  let reply;
+  w.fakeSession = async () => {
+    throw new w.DOMException("Permission denied", "NotAllowedError");
+  };
+  w.fetch = async (path) =>
+    path.includes("/config")
+      ? Response.json({ enabled: true, notice: "Notice", phone: "+359884128117" })
+      : reply();
+  w.eval(bundle.outputFiles[0].text);
+  const $ = (s) => w.document.querySelector(s);
+  const status = $("[data-status]");
+  const attempt = async (button) => {
+    status.textContent = "";
+    $(button).click();
+    await until(() => status.textContent && !/…$/.test(status.textContent));
+    await until(() => !$("[data-start]").hidden);
+    return status.textContent;
+  };
+  $(".assistant-launch").click();
+  reply = () => new Response("Internal error", { status: 500 });
+  assert.equal(
+    await attempt("[data-text]"),
+    "The assistant is temporarily unavailable. Please try again or contact Nikola.",
+  );
+  reply = () =>
+    Response.json({ error: "Твърде много опити. Опитайте по-късно." }, { status: 429 });
+  assert.match(await attempt("[data-text]"), /^Too many attempts/);
+  reply = () =>
+    Response.json(
+      { error: "ElevenLabs (HTTP 401): ELEVENLABS_API_KEY е невалиден" },
+      { status: 502 },
+    );
+  assert.doesNotMatch(await attempt("[data-text]"), /ELEVENLABS|HTTP|[а-я]/i);
+  reply = () => Response.json({ signedUrl: "wss://signed", firstMessage: "Hi" });
+  assert.match(await attempt("[data-voice]"), /^Microphone access is blocked.*Let’s chat/);
+  dom.window.close();
+});

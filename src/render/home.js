@@ -1,6 +1,6 @@
 import { html, raw } from './html.js';
 import { T, AGENT, SITE, CATEGORIES, typeLabel, placeLabel, transliterate, fmtPrice } from './i18n.js';
-import { page, href, waLink, viberLink, telHref } from './layout.js';
+import { page, href, waLink, viberLink, telHref, assistantEnabled } from './layout.js';
 import { cardGrid, contactForm, imgUrl, listingHref } from './components.js';
 import { distinctTypes, regionChips } from '../catalog.js';
 import { groupByRegion, REGION_NAMES } from '../regions.js';
@@ -60,7 +60,7 @@ export function renderHome({ lang, data, env, testimonials = null }) {
     <div class="ai-search">
       <div class="label-kicker"><span class="dot"></span>${t.searchAi}</div>
       <p class="lead-sm">${t.aiHint}</p>
-      <form class="ai-guided" ${env?.DB ? 'data-agent-search' : 'data-ai-search'} data-lang="${lang}" action="${href(lang, '/imoti')}" method="get">
+      <form class="ai-guided" ${assistantEnabled(env) ? 'data-agent-search' : 'data-ai-search'} data-lang="${lang}" action="${href(lang, '/imoti')}" method="get">
         <div class="ai-form"><label class="sr-only" for="ai-query">${t.aiPh}</label><input id="ai-query" name="q" placeholder="${t.aiPh}" maxlength="400"><button type="submit" class="btn btn-primary">${t.aiGo}</button></div>
         <details class="ai-criteria"><summary>${t.aiCriteria}</summary><div class="guided-grid">
           <label>${t.regionFilter}<select name="region"><option value="">${t.anyRegion}</option>${groups.map((g) => html`<option value="${g.key}">${(g.name || REGION_NAMES[g.key])?.[lang] || g.key} (${g.count})</option>`)}</select></label>

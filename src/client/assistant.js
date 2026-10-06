@@ -44,7 +44,7 @@ const suggestions = propertyId
 root.innerHTML = `
 <button class="assistant-launch" type="button" aria-controls="assistant-dialog" aria-expanded="false">${icon("chat")}<span>${txt("Попитайте асистента", "Ask the assistant")}</span><span class="assistant-ai">AI</span></button>
 <section id="assistant-dialog" class="assistant-panel" role="dialog" aria-modal="true" aria-labelledby="assistant-title" hidden>
-  <header class="assistant-header"><div class="assistant-avatar" aria-hidden="true"><img src="/brand/my-balkan-place.png" width="40" height="40" alt=""><span></span></div><div class="assistant-heading"><strong id="assistant-title">${txt("Асистент на Никола", "Nikola’s assistant")}</strong><span>${txt("Вашият ориентир сред имотите", "A little guidance. A place of your own.")}</span></div><button type="button" data-close aria-label="${txt("Скрий прозореца", "Hide chat")}">${icon("close")}</button></header>
+  <header class="assistant-header"><div class="assistant-avatar" aria-hidden="true"><img src="/brand/logo-112.png" width="40" height="40" alt=""><span></span></div><div class="assistant-heading"><strong id="assistant-title">${txt("Асистент на Никола", "Nikola’s assistant")}</strong><span>${txt("Вашият ориентир сред имотите", "A little guidance. A place of your own.")}</span></div><button type="button" data-close aria-label="${txt("Скрий прозореца", "Hide chat")}">${icon("close")}</button></header>
   <nav data-switch class="assistant-switch" aria-label="${txt("Режим на разговор", "Conversation mode")}" hidden><button type="button" data-switch-text title="${txt("Започва нов текстов разговор", "Starts a new text conversation")}" aria-pressed="true">${icon("chat")}${txt("Текстов чат", "Text chat")}</button><button type="button" data-switch-voice title="${txt("Започва нов гласов разговор", "Starts a new voice conversation")}" aria-pressed="false">${icon("mic")}${txt("Гласов разговор", "Voice call")}</button></nav>
   <div class="assistant-scroll">
     <div data-welcome class="assistant-welcome"><span class="assistant-eyebrow">${icon("home")}${propertyId ? txt("ЗА ТОЗИ ИМОТ", "ABOUT THIS PROPERTY") : txt("НЕКА НАМЕРИМ ВАШЕТО МЯСТО", "LET’S FIND YOUR PLACE")}</span><h2>${propertyId ? txt("Какво искате да знаете?", "What would you like to know?") : txt("Добрият избор започва с разговор.", "A good choice starts with a conversation.")}</h2><p>${propertyId ? txt("Попитайте за достъпа, условията за живеене или района. Отговарям по информацията в обявата.", "Ask about access, living conditions or the area. My answers use the listing’s information.") : txt("Разкажете ми какъв имот търсите. Ще Ви помогна да разгледате възможностите.", "Tell me what you’re looking for. I’ll help you explore the possibilities.")}</p></div>
@@ -69,11 +69,53 @@ async function post(url, body) {
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
   });
-  const data = await res.json();
-  if (!res.ok)
-    throw Error(data.error || txt("Възникна грешка.", "Something went wrong."));
+  // Error bodies can be plain text and are written for the admin; visitors get
+  // a message in the page language based on the status alone.
+  const data = await res.json().catch(() => null);
+  if (!res.ok || !data)
+    throw Object.assign(Error(publicError(res.status)), { status: res.status });
   return data;
 }
+const unavailable = () =>
+  txt(
+    "Асистентът е временно недостъпен. Опитайте отново или се свържете с Никола.",
+    "The assistant is temporarily unavailable. Please try again or contact Nikola.",
+  );
+const publicError = (code) =>
+  ({
+    404: txt(
+      "Този имот вече не е публикуван. Отворете каталога отново.",
+      "This property is no longer published. Please open the catalogue again.",
+    ),
+    429: txt(
+      "Твърде много опити. Опитайте отново след няколко минути или се свържете с Никола.",
+      "Too many attempts. Please try again in a few minutes or contact Nikola.",
+    ),
+    503: txt(
+      "Асистентът още не е активиран. Свържете се с Никола или използвайте филтрите за търсене.",
+      "The assistant is not active yet. Contact Nikola or use the search filters.",
+    ),
+  })[code] || unavailable();
+// Map a failed start to a message for the visitor; never show raw browser or
+// SDK error text (it is in English and can describe internals).
+const startError = (e) => {
+  if (e.name === "TimeoutError")
+    return txt(
+      "Свързването отне твърде дълго. Опитайте отново — въпросът Ви е запазен в полето.",
+      "The connection timed out. Try again — your question is still in the input.",
+    );
+  if (e.name === "NotAllowedError" || e.name === "SecurityError")
+    return txt(
+      "Нямам достъп до микрофона. Разрешете го в браузъра или изберете „Пишете ми“ за текстов разговор.",
+      "Microphone access is blocked. Allow it in your browser or choose “Let’s chat” for a text conversation.",
+    );
+  if (e.name === "NotFoundError" || e.name === "NotReadableError")
+    return txt(
+      "Не открих работещ микрофон. Изберете „Пишете ми“ за текстов разговор.",
+      "No working microphone was found. Choose “Let’s chat” for a text conversation.",
+    );
+  return e.status ? e.message : unavailable();
+};
 const ready = fetch("/api/assistant/config?lang=" + (en ? "en" : "bg"))
   .then((r) => r.json())
   .then((c) => {
@@ -379,13 +421,7 @@ async function start(voice) {
     if (!voice) $("#assistant-input").focus();
   } catch (e) {
     if (started !== generation) return;
-    status.textContent =
-      e.name === "TimeoutError"
-        ? txt(
-            "Свързването отне твърде дълго. Опитайте отново — въпросът Ви е запазен в полето.",
-            "The connection timed out. Try again — your question is still in the input.",
-          )
-        : e.message;
+    status.textContent = startError(e);
     await end();
   } finally {
     if (started === generation) busy = false;

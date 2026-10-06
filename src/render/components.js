@@ -28,6 +28,7 @@ export function card(l, lang, { eager = false } = {}) {
   const t = T[lang];
   const imgs = (l.images || []).slice(0, 5);
   const badges = [];
+  if (l.status === 'reserved') badges.push(html`<span class="chip chip-dark">${t.statusReserved}</span>`);
   if (l.rent) badges.push(html`<span class="chip chip-dark">${t.statusRent}</span>`);
   if (l.discount) badges.push(html`<span class="chip chip-alert">-${l.discount}%</span>`);
   else if (l.reduced) badges.push(html`<span class="chip chip-alert">${t.reducedBadge}</span>`);

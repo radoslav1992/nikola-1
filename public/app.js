@@ -6,7 +6,6 @@
   var bg = lang === 'bg';
   var T = {
     thinking: bg ? 'Търсим подходящи имоти…' : 'Looking for matching properties…',
-    asking: bg ? 'Търсим отговор в обявата…' : 'Checking the listing…',
     none: bg ? 'Не намерихме точно съвпадение. Опитайте с други думи или разгледайте всички имоти.' : 'No close match. Try different words or browse all properties.',
     error: bg ? 'Търсенето не сработи. Опитайте отново или използвайте филтрите.' : 'Search did not work. Please try again or use the filters.',
     keyword: bg ? 'Резултати по ключови думи:' : 'Keyword results:',
@@ -118,30 +117,6 @@
       }).catch(function () {
         out.innerHTML = '<div class="ai-answer error">' + esc(T.error) + '</div>';
       }).then(function () { btn.disabled = false; out.setAttribute('aria-busy', 'false'); });
-    });
-  });
-
-  /* AI question about a property */
-  $all('[data-ai-ask]').forEach(function (form) {
-    var out = form.parentNode.querySelector('.ai-result');
-    var listingId = form.getAttribute('data-listing');
-    function ask(q) {
-      var btn = form.querySelector('button');
-      if (btn.disabled) return;
-      btn.disabled = true;
-      out.hidden = false;
-      out.setAttribute('aria-busy', 'true');
-      out.innerHTML = '<div class="ai-answer">' + esc(T.asking) + '</div>';
-      postJSON('/api/ask', { q: q, lang: lang, listingId: listingId }).then(function (res) {
-        if (res.error) throw new Error(res.error);
-        out.innerHTML = '<div class="ai-answer">' + esc(res.answer || T.error) + '</div>';
-      }).catch(function () {
-        out.innerHTML = '<div class="ai-answer error">' + esc(T.error) + '</div>';
-      }).then(function () { btn.disabled = false; out.setAttribute('aria-busy', 'false'); });
-    }
-    form.addEventListener('submit', function (e) { e.preventDefault(); var q = form.q.value.trim(); if (q) ask(q); });
-    $all('[data-ai-chip]', form.parentNode).forEach(function (chip) {
-      chip.addEventListener('click', function () { form.q.value = chip.textContent.trim(); ask(form.q.value); });
     });
   });
 

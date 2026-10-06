@@ -79,9 +79,14 @@ for (const lang of ['bg', 'en']) {
     assert.match(home, /predlozhete-imot/);
     const listing = items[1];
     const property = renderProperty({ lang, data, listing, detail: null, env: {} });
-    assert.equal((property.match(/data-ai-chip/g) || []).length, 4);
-    for (const q of T[lang].aiChips) assert.ok(property.includes(q));
+    // Without a live assistant the ask box would only answer "not available".
+    assert.doesNotMatch(property, /data-ai-chip|data-agent-ask/);
     assert.ok(property.includes(T[lang].factUnknown));
+    const assistantEnv = { DB: {}, ELEVENLABS_API_KEY: 'key', SITE_SETTINGS: { agentId: 'agent', agentEnabled: true, configured: true } };
+    const withAssistant = renderProperty({ lang, data, listing, detail: null, env: assistantEnv });
+    assert.match(withAssistant, /data-agent-ask/);
+    assert.equal((withAssistant.match(/data-ai-chip/g) || []).length, 4);
+    for (const q of T[lang].aiChips) assert.ok(withAssistant.includes(q));
     const filters = parseFilters(new URLSearchParams('region=sevlievo&budget=0-30000'));
     const list = renderListings({ lang, data, filters, env: {}, query: 'region=sevlievo&budget=0-30000' });
     assert.match(list, /value="sevlievo" selected/);

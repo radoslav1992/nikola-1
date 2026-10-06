@@ -92,14 +92,64 @@ test("Worker routes use managed data, hide drafts/media, preserve English URL, p
     assert.equal(r.status, 200);
     assert.equal(r.headers.get("cache-control"), "no-store");
     const html = await r.text();
-    assert.ok(html.includes("/assistant.js"));
+    // No connected agent yet: no widget, no ask box, a working enquiry link.
+    assert.ok(!html.includes("/assistant.js"));
+    assert.ok(!html.includes("data-agent-ask"));
+    assert.ok(html.includes(`href="${lang}/#contact" class="primary"`));
     assert.ok(!html.includes("SECRET_ADDRESS"));
     assert.ok(html.includes(lang ? content.titleEn : content.title));
+    assert.ok(html.includes("https://schema.org/InStock"));
   }
-  assert.equal((await call("/raion/sevlievo")).status, 200);
+  const region = await call("/raion/sevlievo");
+  assert.equal(region.status, 200);
+  const regionHtml = await region.text();
+  assert.ok(!regionHtml.includes("data-agent-open"));
+  assert.ok(regionHtml.includes('class="btn btn-primary" href="/#contact"'));
+  const offline = await (await call("/")).text();
+  assert.ok(offline.includes("data-ai-search"));
+  assert.ok(!offline.includes("data-agent-search"));
+  assert.equal(
+    (await call("/api/assistant/session", { consent: true })).status,
+    503,
+  );
+  env.ELEVENLABS_API_KEY = "key";
+  await setSettings(env, {
+    agentId: "agent_test",
+    agentEnabled: true,
+    configured: true,
+  });
   const home = await call("/");
   assert.equal(home.status, 200);
-  assert.ok((await home.text()).includes("data-agent-search"));
+  const homeHtml = await home.text();
+  assert.ok(homeHtml.includes("data-agent-search"));
+  assert.ok(homeHtml.includes("/assistant.js"));
+  const propertyHtml = await (await call(`/imot/101/${slug}`)).text();
+  assert.ok(propertyHtml.includes("data-agent-ask"));
+  assert.ok(
+    (await (await call("/raion/sevlievo")).text()).includes("data-agent-open"),
+  );
+  // ElevenLabs failures are logged; visitors get a generic message without the
+  // admin advice about API keys or Cloudflare.
+  t.mock.method(console, "error", () => {});
+  const failed = await call("/api/assistant/session", {
+    consent: true,
+    lang: "en",
+  });
+  assert.equal(failed.status, 502);
+  const failure = (await failed.json()).error;
+  assert.match(failure, /temporarily unavailable/);
+  assert.doesNotMatch(failure, /ELEVENLABS|Cloudflare|HTTP/);
+  await saveProperty(env, 101, {
+    content,
+    publication: "published",
+    status: "reserved",
+    version: (await getProperty(env, 101)).version,
+  });
+  const reserved = await (await call(`/imot/101/${slug}`)).text();
+  assert.ok(reserved.includes("Резервиран"));
+  assert.ok(reserved.includes("https://schema.org/Reserved"));
+  assert.ok(!reserved.includes("https://schema.org/InStock"));
+  assert.ok((await (await call("/en/imoti")).text()).includes(">Reserved<"));
   assert.equal(
     (
       await call("/api/contact", {
