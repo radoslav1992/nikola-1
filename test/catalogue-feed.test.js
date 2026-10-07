@@ -7,7 +7,7 @@ import {
   saveProperty,
   getProperty,
 } from "../src/manage/catalogue.js";
-import { catalogueFeed } from "../src/manage/feed.js";
+import { catalogueFeed, passages } from "../src/manage/feed.js";
 
 test("public feeds export full curated content, escape HTML/XML, and never leak private source data", async () => {
   const env = { DB: database(), SITE_URL: "https://unused-domain.test" };
@@ -81,6 +81,15 @@ test("public feeds export full curated content, escape HTML/XML, and never leak 
     html.window.document.querySelector("h2").textContent,
     `№ 00001 — ${item.title}`,
   );
+  // Every passage the knowledge base may retrieve names its property, and
+  // the key details survive as text rather than a definition list.
+  const [summary, ...rest] = [
+    ...html.window.document.querySelectorAll("article p"),
+  ].map((p) => p.textContent);
+  assert.match(summary, /№ 00001 · ID: 101 · .*Населено място: с\. Кръвеник/);
+  assert.equal(rest.length, 3);
+  for (const p of rest) assert.match(p, /^№ 00001 /);
+  assert.equal(html.window.document.querySelectorAll("dl, pre").length, 0);
   html.window.close();
   const rss = new JSDOM(await (await call("/feeds/properties.xml")).text(), {
     contentType: "text/xml",
@@ -144,4 +153,16 @@ test("missing database returns unavailable instead of a misleading empty catalog
     ).status,
     503,
   );
+});
+
+test("catalogue passages stay short and keep sentences whole", () => {
+  const sentence = "Къщата има голям двор и гледка към Балкана. ";
+  const parts = passages(`${sentence.repeat(40)}\n\nКратък абзац.`);
+  assert.ok(parts.length > 2);
+  for (const p of parts.slice(0, -1)) {
+    assert.ok(p.length <= 700);
+    assert.match(p, /Балкана\.$/);
+  }
+  assert.equal(parts.at(-1), "Кратък абзац.");
+  assert.deepEqual(passages(""), []);
 });
