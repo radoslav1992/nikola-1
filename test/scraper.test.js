@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-import { parseListingPage, parsePageMeta, parseDetail, pageUrl, fetchAllListings, clean } from '../src/scraper.js';
+import { parseListingPage, parsePageMeta, parseDetail, parseCard, pageUrl, fetchAllListings, clean, leadingInt, cleanTitle } from '../src/scraper.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const page1 = readFileSync(path.join(here, 'fixtures', 'listing-page-1.html'), 'utf8');
@@ -240,4 +240,33 @@ test('prices quoted in BGN are converted to EUR at the fixed rate', () => {
   assert.equal(first.price, 110000);
   assert.equal(first.oldPrice, 179000);
   assert.equal(first.rent, false);
+});
+
+test('area values ignore the unit, however the source writes m²', () => {
+  for (const [markup, area, plotArea] of [
+    ['<b>Площ на сградата: </b><i>120 м2</i><b>Площ на парцела: </b><i>1 200 м2</i>', 120, 1200],
+    ['<b>Площ на сградата: </b><i>120 м<sup>2</sup></i><b>Площ на парцела: </b><i>1&nbsp;200 м<sup>2</sup></i>', 120, 1200],
+    ['<b>Площ на сградата: </b><i>120 м²</i><b>Площ на парцела: </b><i>12 002 м²</i>', 120, 12002],
+    ['<b>Площ: </b><i>85,5 кв.м</i>', 85, null],
+  ]) {
+    const item = parseCard(`<div data-prop-id="7"><div class="lst">${markup}</div></div>`);
+    assert.equal(item.area, area, markup);
+    assert.equal(item.plotArea, plotArea, markup);
+  }
+  assert.equal(leadingInt('<i> 2</i>'), 2);
+  assert.equal(leadingInt('без площ'), null);
+});
+
+test('marketplace SEO text is cut from source titles', () => {
+  assert.equal(
+    cleanTitle('Двуетажна, масивна къща в село на 35 км от Велико Търново ✔️ 120 м² ✔️ Виж цената ✔️ Superimoti.bg'),
+    'Двуетажна, масивна къща в село на 35 км от Велико Търново',
+  );
+  assert.equal(cleanTitle('Къща в Рибарица - SUPRIMMO'), 'Къща в Рибарица');
+  assert.equal(cleanTitle('✔️ Само отметка'), '✔️ Само отметка');
+  const detail = parseDetail(
+    '<meta property="og:title" content="Къща с двор ✔️ 90 м² ✔️ Superimoti.bg"><h1>x</h1>',
+    1,
+  );
+  assert.equal(detail.title, 'Къща с двор');
 });
