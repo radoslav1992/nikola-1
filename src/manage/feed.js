@@ -103,6 +103,26 @@ function description(item, lang) {
     `Details: ${item.details_url}`,
   ].join("\n");
 }
+// The assistant's knowledge base splits this page into short passages for
+// retrieval. Keep paragraphs short and name the property in each one so any
+// passage it retrieves can be traced back to a listing.
+export function passages(text, max = 700) {
+  const out = [];
+  for (const paragraph of String(text || "").split(/\n\s*\n/)) {
+    let current = "";
+    for (const sentence of paragraph
+      .replace(/\s+/g, " ")
+      .trim()
+      .split(/(?<=[.!?…])\s+/)) {
+      if (current && current.length + sentence.length + 1 > max) {
+        out.push(current);
+        current = sentence;
+      } else current = current ? `${current} ${sentence}` : sentence;
+    }
+    if (current) out.push(current);
+  }
+  return out;
+}
 const xml = (value) =>
   esc(
     String(value ?? "").replace(
@@ -183,26 +203,24 @@ ${items.map((item) => `<item><guid isPermaLink="false">urn:ni-imoti:property:${i
 ${
   items.length
     ? items
-        .map(
-          (item) =>
-            `<article id="property-${item.id}"><h2>№ ${esc(item.number ?? item.reference)} — ${esc(item.title)}</h2><p>№ <strong>${esc(item.number ?? item.reference)}</strong> · ID: <strong>${item.id}</strong></p><dl>${facts(
-              item,
-              lang,
+        .map((item) => {
+          const no = esc(item.number ?? item.reference);
+          return `<article id="property-${item.id}"><h2>№ ${no} — ${esc(item.title)}</h2><p>№ <strong>${no}</strong> · ID: <strong>${item.id}</strong> · ${facts(
+            item,
+            lang,
+          )
+            .map(([k, v]) => `${esc(k)}: ${esc(v)}`)
+            .join(" · ")}</p>${passages(item.description)
+            .map((p) => `<p>№ ${no} — ${esc(p)}</p>`)
+            .join("")}${Object.entries(item.facts)
+            .map(
+              ([k, f]) =>
+                `<p><strong>№ ${no} · ${esc(k)}:</strong> ${esc(f.text)} (${esc(f.reviewed_at)})</p>`,
             )
-              .map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`)
-              .join(
-                "",
-              )}</dl><pre>${esc(item.description)}</pre>${Object.entries(
-              item.facts,
-            )
-              .map(
-                ([k, f]) =>
-                  `<p><strong>${esc(k)}:</strong> ${esc(f.text)} (${esc(f.reviewed_at)})</p>`,
-              )
-              .join(
-                "",
-              )}<nav><a href="${esc(item.url)}">${lang === "en" ? "Property page" : "Страница на имота"}</a><a href="${esc(item.details_url)}">JSON · ID ${item.id}</a></nav></article>`,
-        )
+            .join(
+              "",
+            )}<nav><a href="${esc(item.url)}">${lang === "en" ? "Property page" : "Страница на имота"}</a><a href="${esc(item.details_url)}">JSON · ID ${item.id}</a></nav></article>`;
+        })
         .join("\n")
     : `<p>${lang === "en" ? "No published properties currently available." : "В момента няма публикувани налични имоти."}</p>`
 }
