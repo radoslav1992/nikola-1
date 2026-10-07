@@ -96,6 +96,7 @@ test("assistant preserves a text session across messages, tool errors and minimi
     requests.find((r) => r.path.includes("/session")).body.propertyId,
     101,
   );
+  assert.equal(requests.find((r) => r.path.includes("/session")).body.voice, false);
   await until(() => sent.length);
   assert.deepEqual(sent, ["Какъв е достъпът?"]);
   assert.deepEqual(
@@ -148,6 +149,7 @@ test("assistant preserves a text session across messages, tool errors and minimi
   await until(() => options !== oldOptions && !$("[data-mute]").hidden);
   assert.equal(options.textOnly, false);
   assert.equal($("[data-messages]").children.length, 0, "voice waits for actual transcript events");
+  assert.equal(requests.filter((r) => r.path.includes("/session")).at(-1).body.voice, true);
   assert.equal($("[data-voice-state]").hidden, false);
   assert.equal(
     $("[data-message]").hidden,
