@@ -1,6 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { nearby } from "../src/spatial.js";
+import { findSettlement, lookupPlace, provinceOf } from "../src/geo.js";
+import { townOf } from "../src/catalog.js";
 import { agentTool } from "../src/manage/eleven.js";
 import { database, content } from "./db-helper.js";
 
@@ -102,4 +104,45 @@ test("agent search returns the published 35 km house, retains budget filters and
   } finally {
     DB.close();
   }
+});
+
+test("every Bulgarian settlement can anchor a distance, with names resolved by province", () => {
+  assert.equal(findSettlement("Сломер").province, "Велико Търново");
+  assert.equal(findSettlement("с. Ловнидол").province, "Габрово");
+  // "Априлци" and "Рибарица" also exist in other provinces.
+  assert.equal(findSettlement("Априлци").province, "Ловеч");
+  assert.equal(findSettlement("Apriltsi").province, "Ловеч");
+  assert.equal(findSettlement("Рибарица").province, "Ловеч");
+  assert.equal(findSettlement("Рибарица", "Софийска област").province, "София");
+  // Two towns called Бяла in other provinces: no guess.
+  assert.equal(findSettlement("Бяла"), null);
+  assert.equal(findSettlement("Несъществуващо"), null);
+  assert.equal(provinceOf("Великотърновска област"), "Велико Търново");
+  assert.equal(provinceOf("обл. Ловеч"), "Ловеч");
+
+  const items = [
+    { id: 4, place: "Сломер", region: "Велико Търново" },
+    { id: 3, place: "Ловнидол", region: "Габрово" },
+    { id: 5, place: "Габрово, кв. Ябълка", region: "Габрово" },
+    { id: 9, place: "близо до гр. Севлиево", region: "Габровска област" },
+  ];
+  const [slomer] = nearby(items, "Павликени", 20);
+  assert.equal(slomer.id, 4);
+  assert.equal(slomer.distanceSource, "settlement_centres");
+  assert.ok(slomer.distanceKm > 10 && slomer.distanceKm < 18);
+  assert.deepEqual(
+    nearby(items, "Севлиево", 20).map((l) => l.id),
+    [3],
+  );
+  const district = nearby(items, "Габрово", 20).find((l) => l.id === 5);
+  assert.match(district.distanceNote, /кв\. Ябълка/);
+  assert.equal(nearby(items, "Бяла", 100).length, 0);
+});
+
+test("place names with a district resolve to their town", () => {
+  assert.equal(townOf("Габрово, кв. Ябълка"), "Габрово");
+  assert.equal(townOf("гр. Габрово / кв. Център"), "Габрово");
+  const coords = lookupPlace("Габрово, кв. Ябълка", "Габрово");
+  assert.equal(coords.source, "gazetteer");
+  assert.ok(Math.abs(coords.lat - 42.87) < 0.05);
 });

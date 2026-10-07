@@ -1,4 +1,4 @@
-import { lookupPlace, PLACES } from "./geo.js";
+import { findSettlement, PLACES } from "./geo.js";
 import { transliterate } from "./render/i18n.js";
 export function distanceKm(a, b) {
   const rad = (x) => (x * Math.PI) / 180;
@@ -15,12 +15,12 @@ const normalizedPlace = (value) =>
     .trim()
     .replace(/^(?:gr\.|s\.|town of|village of)\s*/, "")
     .replace(/\s+/g, " ");
-const settlement = (value) =>
-  Object.keys(PLACES).find(
-    (name) =>
-      !name.includes("област") &&
-      normalizedPlace(name) === normalizedPlace(value),
-  );
+// "с. Сломер", "Габрово, кв. Ябълка" or "Рибарица, Ловеч" name a settlement; "близо до X" and
+// "35 км от X" do not, and are left to the listing's own reported distance.
+const settlement = (value, region) => {
+  const [name, hint] = String(value || "").split(/\s*[,/]\s*/);
+  return findSettlement(name, region || hint);
+};
 
 // Explicit listing distances are useful even when the village is undisclosed.
 // Never turn "near X" into X's coordinates or infer distances to other towns.
@@ -59,18 +59,25 @@ function reportedDistance(listing, town) {
   };
 }
 export function nearby(items, place, radius = 20) {
-  const town = settlement(place);
-  const origin = town && lookupPlace(town);
+  const origin = settlement(place);
   if (!origin) return [];
+  const town = origin.name;
   return items
     .map((l) => {
-      const actualTown = settlement(l.place);
-      const coords = actualTown && lookupPlace(actualTown);
+      const coords = settlement(l.place, l.region);
+      // A district ("кв. Ябълка") can lie many kilometres from its town's centre.
+      const district = String(l.place || "")
+        .split(/\s*[,/]\s*/)
+        .slice(1)
+        .find((part) => /^(?:кв|ж\.?\s?к|м|местност)(?=[.\s]|$)/i.test(part));
       const distance = coords
         ? {
             distanceKm: distanceKm(origin, coords),
             distanceSource: "settlement_centres",
             distanceReference: town,
+            ...(district && {
+              distanceNote: `Measured to the centre of ${coords.name}; the property is in ${district}, which can be several km away. Check get_property facts.`,
+            }),
           }
         : reportedDistance(l, town);
       return distance ? { ...l, ...distance } : null;
