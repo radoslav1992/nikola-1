@@ -255,6 +255,7 @@ async function start(voice) {
       lang: en ? "en" : "bg",
       propertyId: sessionPropertyId,
       pagePath: location.pathname,
+      voice,
       consent: true,
     });
     if (started !== generation) return;

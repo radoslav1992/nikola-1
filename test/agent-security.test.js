@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { database, content, source } from "./db-helper.js";
 import { login, isAdmin, requireAdmin, hmac, hex } from "../src/manage/auth.js";
 import {
+  settings,
   setSettings,
   importCatalogue,
   saveProperty,
@@ -253,6 +254,29 @@ test("browser gets only signed URL and published page context, secrets stay serv
   assert.equal(data.dynamicVariables.page_path, "/raion/sevlievo");
   assert.ok(!JSON.stringify(data).includes("test-api-secret"));
   assert.ok(data.firstMessage.includes("transcribed"));
+  // Audio is recorded only in voice conversations; a text chat must not claim it.
+  await setSettings(e, { ...(await settings(e)), recordAudio: true });
+  const greeting = async (voice) =>
+    (
+      await (
+        await assistantApi(
+          req("/api/assistant/session", { consent: true, voice }),
+          e,
+          "/api/assistant/session",
+        )
+      ).json()
+    ).firstMessage;
+  assert.ok(!(await greeting(false)).includes("аудио"));
+  assert.ok(!(await greeting(undefined)).includes("аудио"));
+  assert.match(await greeting(true), /транскрибира и се записва аудио/);
+  const config = await (
+    await assistantApi(
+      new Request(origin + "/api/assistant/config"),
+      e,
+      "/api/assistant/config",
+    )
+  ).json();
+  assert.match(config.notice, /гласовите разговори се записват и като аудио/);
   await importCatalogue(e, { items: [source], total: 1 });
   await saveProperty(e, 101, {
     content,

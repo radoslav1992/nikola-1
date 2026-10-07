@@ -21,7 +21,7 @@ export function townOf(place) {
   return String(place || '')
     .replace(/^близо до\s*/i, '')
     .replace(/^(гр|с|к\.к)\.\s*/i, '')
-    .split(/\s*\/\s*/)[0]
+    .split(/\s*[/,]\s*/)[0]
     .trim();
 }
 

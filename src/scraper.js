@@ -54,6 +54,22 @@ export function toInt(str) {
   return Number.isFinite(n) ? n : null;
 }
 
+// Card values carry their unit ("120 м²", "120 м2", "1 200 м<sup>2</sup>"). Read only the
+// leading number so the unit's "2" is never taken as another digit (120 м2 → 1202).
+export function leadingInt(str) {
+  const m = clean(str).match(/\d{1,3}(?:[ .]\d{3})+(?!\d)|\d+/);
+  return m ? toInt(m[0]) : null;
+}
+
+// Some source titles end in marketplace SEO text ("… ✔️ 120 м² ✔️ Виж цената ✔️ Superimoti.bg").
+export function cleanTitle(str) {
+  const title = clean(str)
+    .replace(/\s*-\s*SUPRIMMO\s*$/i, '')
+    .trim();
+  const cut = title.replace(/\s*✔.*$/u, '').trim();
+  return cut || title;
+}
+
 export function toFloat(str) {
   if (str == null) return null;
   const m = String(str).replace(/\s/g, '').replace(',', '.').match(/\d+(?:\.\d+)?/);
@@ -150,8 +166,7 @@ export function parseCard(block, idFromAttr) {
   );
 
   const titleM = block.match(/<a class="lnk" title="([^"]*)"/) || block.match(/alt="([^"]*?)\s*\d*"\s+title=/);
-  let title = clean(titleM ? titleM[1] : '');
-  title = title.replace(/\s*-\s*SUPRIMMO\s*$/i, '').trim();
+  const title = cleanTitle(titleM ? titleM[1] : '');
 
   const type = clean((block.match(/<div class="ttl">([\s\S]*?)<\/div>/) || [])[1]);
 
@@ -169,7 +184,7 @@ export function parseCard(block, idFromAttr) {
   const lst = (block.match(/<div class="lst">([\s\S]*?)<\/div>/) || [])[1] || '';
   for (const m of lst.matchAll(/<b>([\s\S]*?)<\/b>\s*<i>([\s\S]*?)<\/i>/g)) {
     const field = labelToField(clean(m[1]));
-    if (field && stats[field] == null) stats[field] = toInt(m[2]);
+    if (field && stats[field] == null) stats[field] = leadingInt(m[2]);
   }
 
   // Price block (<div class="prc">): "[Наем] 110 000 € [/месец]", optionally preceded by a struck-out
@@ -323,9 +338,12 @@ export function parseDetail(html, id) {
   const lng = toFloat((html.match(/(?:"l(?:o)?ng(?:itude)?"|l(?:o)?ng(?:itude)?\s*[:=])\s*["']?(2[2-8]\.\d{3,})/i) || [])[1]);
   const youtube = (html.match(/youtube\.com\/(?:watch\?v=|embed\/)([\w-]{11})/) || html.match(/youtu\.be\/([\w-]{11})/) || [])[1] || null;
 
-  const title = clean(metaContent(html, 'property', 'og:title') || (html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i) || [])[1] || '')
-    .replace(/\s*[-—|].*SUPRIMMO.*$/i, '')
-    .trim();
+  const title = cleanTitle(
+    clean(metaContent(html, 'property', 'og:title') || (html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i) || [])[1] || '').replace(
+      /\s*[-—|].*SUPRIMMO.*$/i,
+      '',
+    ),
+  );
 
   return {
     title: title || null,
