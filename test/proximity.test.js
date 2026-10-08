@@ -98,7 +98,8 @@ test("agent search returns the published 35 km house, retains budget filters and
     assert.equal(result.items[0].distanceSource, "listing_reported");
     assert.equal(result.items[0].distanceKm, 35);
     assert.equal(result.items[0].coords, undefined);
-    assert.match(result.distanceMeaning, /according to the listing/);
+    assert.match(result.distanceMeaning, /на около N км/);
+    assert.doesNotMatch(result.distanceMeaning, /according to the listing/);
     assert.equal((await search({ max: 30000 })).total, 0);
     assert.equal((await search({ language: "en" })).total, 1);
   } finally {
