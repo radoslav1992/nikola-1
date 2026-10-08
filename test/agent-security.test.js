@@ -256,19 +256,26 @@ test("browser gets only signed URL and published page context, secrets stay serv
   assert.ok(data.firstMessage.includes("transcribed"));
   // Audio is recorded only in voice conversations; a text chat must not claim it.
   await setSettings(e, { ...(await settings(e)), recordAudio: true });
-  const greeting = async (voice) =>
+  const session = async (voice) =>
     (
-      await (
-        await assistantApi(
-          req("/api/assistant/session", { consent: true, voice }),
-          e,
-          "/api/assistant/session",
-        )
-      ).json()
-    ).firstMessage;
-  assert.ok(!(await greeting(false)).includes("аудио"));
-  assert.ok(!(await greeting(undefined)).includes("аудио"));
-  assert.match(await greeting(true), /транскрибира и се записва аудио/);
+      await assistantApi(
+        req("/api/assistant/session", { consent: true, voice }),
+        e,
+        "/api/assistant/session",
+      )
+    ).json();
+  assert.ok(!(await session(false)).firstMessage.includes("аудио"));
+  assert.ok(!(await session(undefined)).firstMessage.includes("аудио"));
+  assert.match(
+    (await session(true)).firstMessage,
+    /транскрибира и се записва аудио/,
+  );
+  // The agent learns from its first context whether links and digits suit the channel.
+  assert.match(
+    (await session(true)).propertyContext,
+    /^This is a voice conversation/,
+  );
+  assert.match((await session(false)).propertyContext, /^This is a text chat/);
   const config = await (
     await assistantApi(
       new Request(origin + "/api/assistant/config"),
@@ -327,6 +334,11 @@ test("recording notice and phone transfer differ correctly between direct and mi
     direct.conversation_config.agent.prompt.built_in_tools.transfer_to_number,
   );
   assert.equal(direct.platform_settings.auth.enable_auth, true);
+  const webhooks = direct.conversation_config.agent.prompt.tools.filter(
+    (tool) => tool.type === "webhook",
+  );
+  assert.ok(webhooks.length >= 6);
+  assert.ok(webhooks.every((tool) => tool.pre_tool_speech === "force"));
   assert.equal(direct.platform_settings.privacy.record_voice, true);
   assert.equal(direct.platform_settings.privacy.delete_audio, true);
   assert.ok(
