@@ -1,4 +1,5 @@
 import { findSettlement, PLACES } from "./geo.js";
+import { placeParts } from "./catalog.js";
 import { transliterate } from "./render/i18n.js";
 export function distanceKm(a, b) {
   const rad = (x) => (x * Math.PI) / 180;
@@ -15,11 +16,13 @@ const normalizedPlace = (value) =>
     .trim()
     .replace(/^(?:gr\.|s\.|town of|village of)\s*/, "")
     .replace(/\s+/g, " ");
-// "с. Сломер", "Габрово, кв. Ябълка" or "Рибарица, Ловеч" name a settlement; "близо до X" and
-// "35 км от X" do not, and are left to the listing's own reported distance.
+// "с. Сломер", "Габрово, кв. Ябълка", "кв. Ябълка, Габрово" or "Рибарица, Ловеч" name a
+// settlement; "близо до X" and "35 км от X" do not, and are left to the listing's own
+// reported distance.
 const settlement = (value, region) => {
-  const [name, hint] = String(value || "").split(/\s*[,/]\s*/);
-  return findSettlement(name, region || hint);
+  if (/^\s*близо до/i.test(value || "")) return null;
+  const { town, rest } = placeParts(value);
+  return findSettlement(town, region || rest[0]);
 };
 
 // Explicit listing distances are useful even when the village is undisclosed.
@@ -64,12 +67,17 @@ export function nearby(items, place, radius = 20) {
   const town = origin.name;
   return items
     .map((l) => {
+      // The approximate point Nikola placed on the map beats the settlement centre.
+      if (l.coords?.source === "broker")
+        return {
+          ...l,
+          distanceKm: distanceKm(origin, l.coords),
+          distanceSource: "approximate_location",
+          distanceReference: town,
+        };
       const coords = settlement(l.place, l.region);
       // A district ("кв. Ябълка") can lie many kilometres from its town's centre.
-      const district = String(l.place || "")
-        .split(/\s*[,/]\s*/)
-        .slice(1)
-        .find((part) => /^(?:кв|ж\.?\s?к|м|местност)(?=[.\s]|$)/i.test(part));
+      const { district } = placeParts(l.place);
       const distance = coords
         ? {
             distanceKm: distanceKm(origin, coords),

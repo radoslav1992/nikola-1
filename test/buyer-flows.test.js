@@ -62,6 +62,11 @@ test('broker facts require source and review date, and preserve language fallbac
   assert.ok(buyerFacts(999, 'bg', notes).every((f) => f.text === null));
 });
 
+test('property buttons ask the four questions Nikola approved', () => {
+  assert.deepEqual(T.bg.aiChips, ['Какви са силните страни на имота?', 'За какъв купувач е подходящ?', 'Какво да проверя преди оглед?', 'Има ли подобни имоти наблизо?']);
+  assert.equal(T.en.aiChips.length, 4);
+});
+
 test('property AI receives only listing evidence and disallows invented costs and distances', async () => {
   let messages;
   await askAboutListing({ AI: { run: async (_, input) => { messages = input.messages; return { response: 'Не е посочено.' }; } } }, items[0], null, T.bg.aiChips[3], 'bg');
@@ -88,6 +93,8 @@ for (const lang of ['bg', 'en']) {
     assert.match(withAssistant, /data-agent-ask/);
     assert.equal((withAssistant.match(/data-ai-chip/g) || []).length, 4);
     for (const q of T[lang].aiChips) assert.ok(withAssistant.includes(q));
+    // The buyer facts keep their own labels; the buttons ask broader questions.
+    for (const label of T[lang].factLabels) assert.ok(property.includes(label));
     const filters = parseFilters(new URLSearchParams('region=sevlievo&budget=0-30000'));
     const list = renderListings({ lang, data, filters, env: {}, query: 'region=sevlievo&budget=0-30000' });
     assert.match(list, /value="sevlievo" selected/);

@@ -3,7 +3,7 @@ import { html, raw } from './html.js';
 import { T, SITE, typeLabel, placeLabel, regionLabel, fmtPrice, fmtArea, fmtNumber } from './i18n.js';
 import { page, href, assistantEnabled } from './layout.js';
 import { cardGrid, agentCard, imgUrl, listingPath } from './components.js';
-import { similarTo, townOf } from '../catalog.js';
+import { similarTo, placeParts } from '../catalog.js';
 
 export function renderProperty({ lang, data, listing: l, detail, env }) {
   const t = T[lang];
@@ -12,12 +12,16 @@ export function renderProperty({ lang, data, listing: l, detail, env }) {
   const thumbs = images.slice(1, 5);
   const similar = similarTo(data.items, l, 3);
   const paragraphs = detail?.paragraphs?.length ? detail.paragraphs : [];
-  const town = townOf(l.place);
+  const { town, district } = placeParts(l.place);
   const exact = null;
   const coords = exact || (l.coords && Number.isFinite(l.coords.lat) ? l.coords : null);
+  // Nikola's approximate point when he placed one; otherwise the district and town by name.
+  const mapQuery = coords?.source === 'broker'
+    ? `${coords.lat},${coords.lng}`
+    : [district, town, l.region !== town && l.region, 'България'].filter(Boolean).join(', ');
   const mapUrl = exact
     ? `https://www.openstreetmap.org/?mlat=${exact.lat}&mlon=${exact.lng}#map=15/${exact.lat}/${exact.lng}`
-    : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${town}, ${l.region}, България`)}`;
+    : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapQuery)}`;
 
   const features = [];
   features.push({ label: t.fTypeLabel, value: typeLabel(l.type, lang) });
@@ -101,7 +105,7 @@ export function renderProperty({ lang, data, listing: l, detail, env }) {
 
     <section class="buyer-facts">
       <h2>${t.buyerFactsTitle}</h2>
-      <dl class="buyer-facts-grid">${(l.managed ? ['access','yearRound','amenities','nearestTown'].map(k=>l.facts?.[k]||{}) : buyerFacts(l.id, lang)).map((f, i) => html`<div><dt>${t.aiChips[i]}</dt><dd>${f.text || t.factUnknown}${f.text ? html`<small>${t.factSource}: ${f.source} · ${t.factReviewed}: ${f.reviewedAt}</small>` : ''}</dd></div>`)}</dl>
+      <dl class="buyer-facts-grid">${(l.managed ? ['access','yearRound','amenities','nearestTown'].map(k=>l.facts?.[k]||{}) : buyerFacts(l.id, lang)).map((f, i) => html`<div><dt>${t.factLabels[i]}</dt><dd>${f.text || t.factUnknown}${f.text ? html`<small>${t.factSource}: ${f.source} · ${t.factReviewed}: ${f.reviewedAt}</small>` : ''}</dd></div>`)}</dl>
     </section>
 
     ${assistantEnabled(env) ? html`<div class="ai-box">

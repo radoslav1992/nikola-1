@@ -16,13 +16,28 @@ export function distinctTypes(items) {
   return [...seen.keys()];
 }
 
-/** "близо до гр. Севлиево" → "Севлиево"; "гр. Габрово / кв. Център" → "Габрово"; "с. Орешене" → "Орешене" */
-export function townOf(place) {
-  return String(place || '')
+// A district or locality inside a town: "кв. Ябълка", "ж.к. Младост", "м. Попова поляна".
+const DISTRICT = /^(?:кв|ж\.?\s?к|м|местност|мах|махала)(?=[.\s]|$)/i;
+
+/**
+ * The settlement and district a place names, in either order:
+ * "Габрово, кв. Ябълка" and "кв. Ябълка, Габрово" → { town: "Габрово", district: "кв. Ябълка", rest: [] }.
+ * rest holds further parts, such as a province ("Рибарица, Ловеч").
+ */
+export function placeParts(place) {
+  const parts = String(place || '')
     .replace(/^близо до\s*/i, '')
-    .replace(/^(гр|с|к\.к)\.\s*/i, '')
-    .split(/\s*[/,]\s*/)[0]
-    .trim();
+    .split(/\s*[/,]\s*/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+  const district = parts.find((p) => DISTRICT.test(p)) || '';
+  const others = parts.filter((p) => p !== district).map((p) => p.replace(/^(гр|с|к\.к)\.\s*/i, '').trim());
+  return { town: others[0] || district, district, rest: others.slice(1) };
+}
+
+/** "близо до гр. Севлиево" → "Севлиево"; "гр. Габрово / кв. Център" or "кв. Център, Габрово" → "Габрово"; "с. Орешене" → "Орешене" */
+export function townOf(place) {
+  return placeParts(place).town;
 }
 
 /** Towns + regions with counts, most frequent first. */

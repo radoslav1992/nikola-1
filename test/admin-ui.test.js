@@ -145,12 +145,27 @@ test("broker UI creates and saves a property, edits knowledge, manages slots and
   await tick(() => $("#property"));
   input($("#property"), "title", "Нова къща");
   input($("#property"), "place", "с. Кръвеник");
+  // Without Leaflet the coordinates field alone still sets the point.
+  assert.equal($("#point-map").hidden, true);
+  input($("#property"), "mapPoint", "42.80614, 25.21337");
   submit($("#property"));
   await tick(() => $("#editor-status").textContent === "Запазено.");
-  assert.ok(
-    (
-      await env.DB.prepare("SELECT content_json FROM properties").first()
-    ).content_json.includes("Нова къща"),
+  const saved = JSON.parse(
+    (await env.DB.prepare("SELECT content_json FROM properties").first())
+      .content_json,
+  );
+  assert.equal(saved.title, "Нова къща");
+  assert.deepEqual(saved.mapPoint, { lat: 42.81, lng: 25.21 });
+  $("#clear-point").click();
+  $("#editor-status").textContent = "";
+  submit($("#property"));
+  await tick(() => $("#editor-status").textContent === "Запазено.");
+  assert.equal(
+    JSON.parse(
+      (await env.DB.prepare("SELECT content_json FROM properties").first())
+        .content_json,
+    ).mapPoint,
+    null,
   );
   $("[data-tab=knowledge]").click();
   await tick(() => $("#knowledge"));

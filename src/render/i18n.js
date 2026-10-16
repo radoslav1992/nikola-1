@@ -61,7 +61,8 @@ export const T = {
     descTitle: 'Описание', descMissing: 'Пълното описание и всички снимки са в оригиналната обява на SUPRIMMO.', descSource: 'Виж обявата в SUPRIMMO →',
     mapTitle: 'Местоположение', mapSub: 'Точният адрес се предоставя при оглед. Отворете картата за ориентир в района.', mapOpen: 'Отвори картата', mapNote: 'Приблизително',
     aiKicker: 'Изкуствен интелект', aiTitle: 'Попитайте за този имот', aiSub: 'Отговорите се базират на информацията в обявата. За всичко останало — обадете се на Никола.', aiPhProp: 'Например: Има ли ток и вода в имота?', aiAsk: 'Попитай',
-    aiChips: ['Какъв е достъпът до имота?', 'Подходящ ли е за целогодишно живеене?', 'Какво има в селото и наблизо?', 'Колко е далеч най-близкият град?'],
+    aiChips: ['Какви са силните страни на имота?', 'За какъв купувач е подходящ?', 'Какво да проверя преди оглед?', 'Има ли подобни имоти наблизо?'],
+    factLabels: ['Достъп до имота', 'Целогодишно живеене', 'В селото и наблизо', 'Най-близък град'],
     agentNote: 'Отговорен брокер за този имот. Пишете ми — ще отговоря честно и на въпросите, които не са в обявата.',
     formMsgProp: (ref) => `Интересувам се от имот ${ref}…`, formEnquire: 'Изпрати запитване',
     viewingNote: 'Огледи — понеделник – петък: 09:00–18:00; събота: с предварителна уговорка; неделя до обяд: с предварителна уговорка. Може да съчетаем няколко имота в района в един ден.',
@@ -111,7 +112,8 @@ export const T = {
     descTitle: 'Description', descMissing: 'The full description and all photos are in the original SUPRIMMO listing (in Bulgarian).', descSource: 'Open the SUPRIMMO listing →',
     mapTitle: 'Location', mapSub: 'The exact address is shared at viewing. Open the map to get a feel for the area.', mapOpen: 'Open map', mapNote: 'Approximate',
     aiKicker: 'AI assistant', aiTitle: 'Ask about this property', aiSub: 'Answers draw on the listing information. For anything else — call Nikola.', aiPhProp: 'For example: Does the property have electricity and water?', aiAsk: 'Ask',
-    aiChips: ['What is access to the property like?', 'Is it suitable for year-round living?', 'What is available in the village and nearby?', 'How far is the nearest town?'],
+    aiChips: ['What are the strengths of this property?', 'What kind of buyer is it suitable for?', 'What should I check before a viewing?', 'Are there similar properties nearby?'],
+    factLabels: ['Access to the property', 'Year-round living', 'In the village and nearby', 'Nearest town'],
     agentNote: 'Responsible agent for this property. Get in touch — I will answer honestly, including the questions the listing does not cover.',
     formMsgProp: (ref) => `I am interested in property ${ref}…`, formEnquire: 'Send enquiry',
     viewingNote: 'Viewings — Monday–Friday: 09:00–18:00; Saturday: by prior arrangement; Sunday before noon: by prior arrangement. We can combine several properties in the area in one day.',
@@ -187,7 +189,8 @@ export function placeLabel(place, lang) {
   let prefix = '';
   if (/^близо до/i.test(p)) { prefix = 'near '; p = p.replace(/^близо до\s*/i, ''); }
   p = p.replace(/^гр\.\s*/i, '').replace(/^с\.\s*/i, 'village of ').replace(/^к\.к\.\s*/i, 'resort ');
-  p = p.replace(/\s*\/\s*кв\.\s*/i, ', ').replace(/\s*\/\s*/g, ', ');
+  p = p.replace(/^кв\.\s*([^,/]+?)\s*[,/]\s*(.+)$/i, '$2 / кв. $1');
+  p = p.replace(/\s*[/,]\s*кв\.\s*/i, ', ').replace(/\s*\/\s*/g, ', ');
   const t = transliterate(p);
   return prefix + (p.includes(', ') ? t.replace(/, (.*)$/, ', $1 district') : t);
 }
