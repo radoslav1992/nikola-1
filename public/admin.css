@@ -324,3 +324,8 @@ legend {
     height: 60px;
   }
 }
+.point-map {
+  height: 320px;
+  margin: 8px 0;
+  border-radius: 8px;
+}

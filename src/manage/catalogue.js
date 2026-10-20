@@ -78,9 +78,26 @@ export function validateContent(input) {
         reviewedAt: clean(f.reviewedAt, 10),
       };
   }
+  out.mapPoint = mapPoint(input.mapPoint);
   out.locationConfirmed = Boolean(input.locationConfirmed);
   out.contentReviewed = Boolean(input.contentReviewed);
   return out;
+}
+// The approximate point Nikola places on the map. It is snapped to a grid of about
+// 1 km, so even a click on the house itself never reveals the exact address.
+export function mapPoint(value) {
+  if (value == null || value === "") return null;
+  const [lat, lng] =
+    typeof value === "string"
+      ? (value.match(/-?\d+(?:\.\d+)?/g) || []).map(Number)
+      : [Number(value.lat), Number(value.lng)];
+  if (!(lat >= 41.2 && lat <= 44.3 && lng >= 22.3 && lng <= 28.7))
+    throw new HttpError(
+      400,
+      "Точката на картата трябва да е в България (напр. 42.85, 25.21).",
+    );
+  const snap = (x) => Math.round(x * 100) / 100;
+  return { lat: snap(lat), lng: snap(lng) };
 }
 export function publicListing(row, lang = "bg") {
   const source = parse(row.source_json),
@@ -111,8 +128,16 @@ export function publicListing(row, lang = "bg") {
     managed: true,
     updatedAt: row.updated_at,
   };
-  // Never reuse source coordinates. Only settlement centres reach public views and tools.
-  out.coords = lookupPlace(out.place, out.region);
+  // Never reuse source coordinates. Only settlement centres, or the approximate point
+  // Nikola placed himself, reach public views and tools.
+  out.coords = c.mapPoint
+    ? {
+        lat: c.mapPoint.lat,
+        lng: c.mapPoint.lng,
+        approx: true,
+        source: "broker",
+      }
+    : lookupPlace(out.place, out.region);
   out.locationConfirmed = Boolean(c.locationConfirmed);
   out.description =
     lang === "en" && c.descriptionEn ? c.descriptionEn : c.description || "";

@@ -33,14 +33,14 @@ import {
 
 export function adminPage() {
   return new Response(
-    `<!doctype html><html lang="bg"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>My Balkan Place · Управление</title><link rel="stylesheet" href="/admin.css"></head><body><div id="admin-root"><p>Зареждане…</p></div><script src="/admin.js" defer></script></body></html>`,
+    `<!doctype html><html lang="bg"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>My Balkan Place · Управление</title><link rel="stylesheet" href="/vendor/leaflet/leaflet.css"><link rel="stylesheet" href="/admin.css"></head><body><div id="admin-root"><p>Зареждане…</p></div><script src="/vendor/leaflet/leaflet.js" defer></script><script src="/admin.js" defer></script></body></html>`,
     {
       headers: {
         "content-type": "text/html; charset=utf-8",
         "cache-control": "no-store",
         "x-frame-options": "DENY",
         "content-security-policy":
-          "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob: data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+          "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob: data: https://tile.openstreetmap.org; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
       },
     },
   );
@@ -316,11 +316,23 @@ export async function adminApi(request, env, ctx, refresh) {
         "SELECT * FROM conversations ORDER BY occurred_at DESC LIMIT 300",
       ).all()
     ).results;
+    // Contacts the assistant saved with request_callback, by conversation.
+    const contacts = new Map();
+    for (const l of (
+      await env.DB.prepare(
+        "SELECT data_json FROM leads ORDER BY created_at DESC LIMIT 1000",
+      ).all()
+    ).results) {
+      const d = parse(l.data_json);
+      if (d.conversationId && !contacts.has(d.conversationId))
+        contacts.set(d.conversationId, { name: d.name, contact: d.contact });
+    }
     return json({
       items: rows.map((r) => ({
         ...r,
         transcript: parse(r.transcript_json, []),
         metadata: parse(r.metadata_json),
+        contact: contacts.get(r.id) || null,
         transcript_json: undefined,
         metadata_json: undefined,
       })),

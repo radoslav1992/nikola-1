@@ -263,7 +263,7 @@ const views = {
       items.map((r) => [
         time(r.created_at),
         `<b>${esc(r.data.name)}</b><br>${esc(r.data.contact)}`,
-        `<strong>${r.data.intent === "sell" ? "Предложение за продажба" : "Търсене на имот"}</strong><p class="pre">${esc([r.data.propertyLocation, r.data.propertyType, r.data.message].filter(Boolean).join("\n"))}</p>`,
+        `<strong>${r.data.intent === "sell" ? "Предложение за продажба" : "Търсене на имот"}</strong>${r.data.source === "agent" ? " · от AI асистента" : ""}<p class="pre">${esc([r.data.propertyLocation, r.data.propertyType, r.data.message].filter(Boolean).join("\n"))}</p>`,
         select(
           "status",
           "",
@@ -356,7 +356,7 @@ const views = {
   async conversations() {
     const { items } = await api("conversations");
     $("#content").innerHTML =
-      `<button id="sync-calls">Обнови разговорите</button><p>Транскрипциите пристигат след края на разговора. Аудио има само когато записването е включено.</p>${items.map((c) => `<details class="panel"><summary>${time(c.occurred_at)} · ${c.channel === "phone" ? "Телефон" : "Сайт"} · ${esc(c.status)}</summary><p>${esc(c.summary)}</p>${c.metadata.hasAudio ? `<audio controls preload="none" src="/api/admin/conversations/${encodeURIComponent(c.id)}/audio"></audio>` : ""}<div class="transcript">${c.transcript.map((t) => `<p><b>${t.role === "user" ? "Посетител" : "Асистент"}:</b> ${esc(t.message)}</p>`).join("")}</div><button data-note="${c.id}" data-kind="conversation">Бележки</button></details>`).join("") || "<p>Няма разговори.</p>"}`;
+      `<button id="sync-calls">Обнови разговорите</button><p>Транскрипцията, резюмето и следващото действие пристигат след края на разговора и се изтриват след срока за съхранение от „Настройки“. Контактите, оставени на асистента, са и в „Запитвания“.</p>${items.map((c) => `<details class="panel"><summary>${time(c.occurred_at)} · ${c.channel === "phone" ? "Телефон" : "Сайт"}${c.metadata.nextAction ? ` · <b>${esc(c.metadata.nextAction)}</b>` : ` · ${esc(c.status)}`}${c.contact ? " · оставен контакт" : ""}</summary>${c.metadata.nextAction ? `<p><b>Следващо действие:</b> ${esc(c.metadata.nextAction)}</p>` : ""}${c.contact ? `<p><b>Контакт:</b> ${esc(c.contact.name)} · ${esc(c.contact.contact)} (виж „Запитвания“)</p>` : ""}<p>${esc(c.summary)}</p>${c.metadata.hasAudio ? `<audio controls preload="none" src="/api/admin/conversations/${encodeURIComponent(c.id)}/audio"></audio>` : ""}<div class="transcript">${c.transcript.map((t) => `<p><b>${t.role === "user" ? "Посетител" : "Асистент"}:</b> ${esc(t.message)}</p>`).join("")}</div><button data-note="${c.id}" data-kind="conversation">Бележки</button></details>`).join("") || "<p>Няма разговори.</p>"}`;
     $("#sync-calls").onclick = action(async () => {
       await api("conversations/sync", {});
       await load();
@@ -535,6 +535,47 @@ const views = {
     )}`;
   },
 };
+// Snapped like the server does, so the circle shows what visitors will see.
+const snapPoint = (value) => {
+  const [lat, lng] = (String(value).match(/-?\d+(?:\.\d+)?/g) || []).map(
+    (x) => Math.round(Number(x) * 100) / 100,
+  );
+  return Number.isFinite(lat) && Number.isFinite(lng) ? [lat, lng] : null;
+};
+function pointPicker(form) {
+  const input = form.elements.mapPoint;
+  $("#clear-point").onclick = () => {
+    input.value = "";
+    input.dispatchEvent(new Event("input"));
+  };
+  const L = window.L;
+  if (!L) return;
+  const el = $("#point-map");
+  el.hidden = false;
+  const map = L.map(el, { scrollWheelZoom: false });
+  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 18,
+    attribution: "© OpenStreetMap",
+  }).addTo(map);
+  let circle = null;
+  const draw = (pan) => {
+    const point = snapPoint(input.value);
+    if (circle) circle.remove();
+    circle = point
+      ? L.circle(point, { radius: 1000, color: "#167A5A", weight: 2 }).addTo(
+          map,
+        )
+      : null;
+    if (point && pan) map.setView(point, Math.max(map.getZoom() || 0, 12));
+  };
+  map.setView(snapPoint(input.value) || [42.95, 25.3], input.value ? 12 : 9);
+  draw(false);
+  input.addEventListener("input", () => draw(true));
+  map.on("click", (e) => {
+    input.value = `${e.latlng.lat.toFixed(2)}, ${e.latlng.lng.toFixed(2)}`;
+    draw(false);
+  });
+}
 async function editProperty(id) {
   editor = await api("properties/" + id);
   const c = editor.content,
@@ -555,7 +596,7 @@ async function editProperty(id) {
       "Наличност",
       editor.status,
       ["active", "reserved", "sold", "withdrawn"].map((s) => [s, states[s]]),
-    )}<p class="wide muted">Самостоятелен имот. Цената и наличността се управляват ръчно.</p>${field("title", "Заглавие (BG)", c.title)}${field("titleEn", "Заглавие (EN)", c.titleEn)}${field("type", "Тип (напр. Къща)", c.type)}${field("place", "Действително населено място", c.place)}${field("region", "Област", c.region)}${select("regionKey", "Район на сайта", c.regionKey || "", [["", "Избери район"], ...regions.map((r) => [r.key, r.name.bg])])}${field("price", "Цена (€)", c.price, "number")}${field("area", "Площ (м²)", c.area, "number")}${field("plotArea", "Двор / парцел (м²)", c.plotArea, "number")}${field("bedrooms", "Спални", c.bedrooms, "number")}${field("floors", "Етажи", c.floors, "number")}${check("rent", "Под наем", c.rent)}${area("description", "Пълно описание (BG)", c.description, 12)}${area("descriptionEn", "Пълно описание (EN)", c.descriptionEn, 12)}<div class="wide toolbar"><button type="button" id="translate" class="quiet">Подготви английски превод</button><span id="translation-status" role="status" aria-live="polite"></span></div><h2 class="wide">Снимки</h2><div id="images" class="wide images"></div><label class="wide">Добави снимки (JPEG, PNG, WebP до 8 MB)<input id="upload" type="file" accept="image/jpeg,image/png,image/webp" multiple></label><h2 class="wide">Проверени отговори за купувачите</h2><p class="wide">Само отговори с посочен източник и дата на проверката се показват на сайта и агента.</p>${Object.entries(
+    )}<p class="wide muted">Самостоятелен имот. Цената и наличността се управляват ръчно.</p>${field("title", "Заглавие (BG)", c.title)}${field("titleEn", "Заглавие (EN)", c.titleEn)}${field("type", "Тип (напр. Къща)", c.type)}${field("place", "Действително населено място", c.place)}${field("region", "Област", c.region)}${select("regionKey", "Район на сайта", c.regionKey || "", [["", "Избери район"], ...regions.map((r) => [r.key, r.name.bg])])}<fieldset class="wide"><legend>Приблизително място на картата</legend><p class="muted">Без точка картата и търсенето по разстояние използват центъра на населеното място. За имот извън центъра (напр. кв. Ябълка) натиснете приблизителното място на картата или поставете координати от Google Maps. Точката се закръгля до около 1 км, а посетителите виждат кръг, не точен адрес.</p>${field("mapPoint", "Точка (ширина, дължина)", c.mapPoint ? `${c.mapPoint.lat}, ${c.mapPoint.lng}` : "")}<div id="point-map" class="point-map" hidden></div><div class="toolbar"><button type="button" id="clear-point" class="quiet">Премахни точката</button></div></fieldset>${field("price", "Цена (€)", c.price, "number")}${field("area", "Площ (м²)", c.area, "number")}${field("plotArea", "Двор / парцел (м²)", c.plotArea, "number")}${field("bedrooms", "Спални", c.bedrooms, "number")}${field("floors", "Етажи", c.floors, "number")}${check("rent", "Под наем", c.rent)}${area("description", "Пълно описание (BG)", c.description, 12)}${area("descriptionEn", "Пълно описание (EN)", c.descriptionEn, 12)}<div class="wide toolbar"><button type="button" id="translate" class="quiet">Подготви английски превод</button><span id="translation-status" role="status" aria-live="polite"></span></div><h2 class="wide">Снимки</h2><div id="images" class="wide images"></div><label class="wide">Добави снимки (JPEG, PNG, WebP до 8 MB)<input id="upload" type="file" accept="image/jpeg,image/png,image/webp" multiple></label><h2 class="wide">Проверени отговори за купувачите</h2><p class="wide">Само отговори с посочен източник и дата на проверката се показват на сайта и агента.</p>${Object.entries(
       {
         access: "Достъп до имота",
         yearRound: "Целогодишно живеене",
@@ -604,6 +645,7 @@ async function editProperty(id) {
       );
   };
   drawImages();
+  pointPicker(f);
   $("#back").onclick = action(async () => {
     if (
       !confirm("Да затворя ли редактора? Незапазените промени ще се загубят.")
@@ -719,6 +761,7 @@ async function editProperty(id) {
         "plotArea",
         "bedrooms",
         "floors",
+        "mapPoint",
       ])
         content[key] = data[key];
       for (const key of ["rent", "locationConfirmed", "contentReviewed"])
